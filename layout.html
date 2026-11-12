@@ -1,0 +1,1335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111319">
+  <meta name="description" content="A touchscreen moderator console for running Mafia nights, deaths, and voting.">
+  <title>Mafia Night Runner</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23111319'/%3E%3Cpath d='M12 43 20 17l12 15 12-15 8 26Z' fill='%23d8ae5e'/%3E%3Ccircle cx='32' cy='42' r='6' fill='%23a43a3a'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      color-scheme: dark;
+      --ink: #111319;
+      --panel: #1a1d25;
+      --panel-2: #232733;
+      --line: #363b49;
+      --text: #f6f1e8;
+      --muted: #aaa69e;
+      --gold: #d8ae5e;
+      --gold-2: #f2d28f;
+      --blood: #a43a3a;
+      --blood-2: #d65b55;
+      --good: #63b08c;
+      --blue: #6e92c7;
+      --shadow: 0 18px 60px rgba(0,0,0,.32);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; margin: 0; background: var(--ink); color: var(--text); }
+    body {
+      min-height: 100vh;
+      min-height: 100dvh;
+      background:
+        radial-gradient(circle at 18% -8%, rgba(164,58,58,.2), transparent 34rem),
+        radial-gradient(circle at 95% 10%, rgba(216,174,94,.12), transparent 28rem),
+        var(--ink);
+      font-size: 17px;
+      line-height: 1.5;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button, input { font: inherit; }
+    button { touch-action: manipulation; }
+    .shell { width: min(100%, 1050px); min-height: 100dvh; margin: 0 auto; padding: max(18px, env(safe-area-inset-top)) 22px max(26px, env(safe-area-inset-bottom)); }
+    .topbar { min-height: 58px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .status-pill { padding: 8px 13px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .88rem; white-space: nowrap; }
+    .screen.is-entering { animation: rise .22s ease-out; }
+    @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: translateY(0); } }
+    .eyebrow { margin: 0 0 8px; color: var(--gold); font-weight: 800; text-transform: uppercase; letter-spacing: .13em; font-size: .76rem; }
+    h1, h2, h3 { margin: 0; line-height: 1.08; letter-spacing: -.025em; }
+    h1 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.35rem, 7vw, 4.8rem); font-weight: 700; }
+    h2 { font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.9rem, 5vw, 3.25rem); }
+    h3 { font-size: 1.15rem; }
+    .lead { max-width: 700px; margin: 16px 0 0; color: #cbc6bd; font-size: clamp(1rem, 2.4vw, 1.2rem); }
+    .hero { padding: clamp(25px, 6vw, 58px) 0 26px; }
+    .panel { margin-top: 22px; padding: clamp(19px, 4vw, 30px); border: 1px solid var(--line); border-radius: 24px; background: linear-gradient(155deg, rgba(35,39,51,.94), rgba(24,27,35,.96)); box-shadow: var(--shadow); }
+    .panel.soft { box-shadow: none; background: rgba(26,29,37,.72); }
+    .panel.danger { border-color: rgba(164,58,58,.6); }
+    .rule { height: 1px; background: var(--line); margin: 22px 0; }
+    .stack { display: grid; gap: 14px; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 13px; }
+    .grid.three { grid-template-columns: repeat(3, minmax(0,1fr)); }
+    .choice-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 13px; margin-top: 22px; }
+    .btn { min-height: 64px; border: 1px solid var(--line); border-radius: 17px; padding: 14px 18px; background: var(--panel-2); color: var(--text); font-weight: 800; cursor: pointer; transition: transform .08s ease, border-color .15s ease, background .15s ease; }
+    .btn:active { transform: scale(.985); }
+    .btn:hover, .btn:focus-visible { border-color: var(--gold); outline: none; }
+    .btn.primary { min-height: 72px; color: #17130c; background: linear-gradient(180deg, var(--gold-2), var(--gold)); border-color: var(--gold-2); font-size: 1.05rem; }
+    .btn.danger { background: rgba(164,58,58,.2); border-color: rgba(214,91,85,.65); color: #ffd7d4; }
+    .btn.ghost { background: transparent; color: var(--muted); }
+    .btn.selected { border-color: var(--gold-2); background: rgba(216,174,94,.16); box-shadow: inset 0 0 0 1px var(--gold); }
+    .btn:disabled { opacity: .42; cursor: not-allowed; }
+    .btn small { display: block; margin-top: 4px; color: var(--muted); font-weight: 600; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 13px; margin-top: 22px; }
+    .actions .wide { grid-column: 1 / -1; }
+    .field { display: grid; gap: 7px; }
+    .field label { color: var(--muted); font-size: .86rem; font-weight: 750; }
+    .field input { min-height: 58px; width: 100%; border: 1px solid var(--line); border-radius: 14px; padding: 12px 15px; background: #14171e; color: var(--text); outline: none; }
+    .field input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(216,174,94,.12); }
+    .stepper { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px; border: 1px solid var(--line); border-radius: 17px; background: #161920; }
+    .stepper strong { font-size: 1.07rem; }
+    .stepper-controls { display: flex; align-items: center; gap: 10px; }
+    .stepper-controls button { width: 52px; height: 52px; border: 1px solid var(--line); border-radius: 15px; background: var(--panel-2); color: var(--text); font-size: 1.45rem; font-weight: 800; }
+    .stepper-controls output { min-width: 32px; text-align: center; font-size: 1.25rem; font-weight: 850; }
+    .toggle { width: 62px; height: 36px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: #12151b; }
+    .toggle span { display: block; width: 28px; height: 28px; border-radius: 50%; background: var(--muted); transition: transform .2s ease, background .2s ease; }
+    .toggle.on span { transform: translateX(26px); background: var(--gold); }
+    .name-list { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+    .player-setup { display: grid; grid-template-columns: minmax(0,1fr) 112px; gap: 10px; align-items: end; padding: 12px; border: 1px solid var(--line); border-radius: 17px; background: rgba(16,18,24,.54); }
+    .card-button { min-height: 58px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); color: var(--text); font-size: 1.35rem; font-weight: 900; cursor: pointer; }
+    .card-button.empty { color: var(--muted); font-size: .9rem; }
+    .playing-card { font-family: Georgia, "Times New Roman", serif; font-weight: 900; letter-spacing: .02em; }
+    .playing-card.red { color: #ef7670; }
+    .card-picker { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-top: 20px; }
+    .card-choice { min-height: 68px; border: 1px solid var(--line); border-radius: 15px; background: var(--panel-2); color: var(--text); font-size: 1.45rem; cursor: pointer; }
+    .card-choice.selected { border-color: var(--gold-2); background: rgba(216,174,94,.18); box-shadow: inset 0 0 0 1px var(--gold); }
+    .card-choice:disabled { opacity: .25; cursor: not-allowed; }
+    .setup-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .table-controls { display: grid; grid-template-columns: 1fr 1fr auto; gap: 12px; align-items: stretch; margin-top: 18px; }
+    .table-map { position: relative; height: clamp(440px,62dvh,620px); margin: 24px 42px 8px; border: 1px solid rgba(216,174,94,.16); border-radius: 28px; background: radial-gradient(circle at 50% 50%,rgba(216,174,94,.06),transparent 58%); }
+    .table-map.selection-map { height: clamp(420px,56dvh,540px); margin-top: 18px; }
+    .table-surface { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); border: 2px solid rgba(216,174,94,.48); border-radius: 24px; background: linear-gradient(145deg,#302820,#17191f); box-shadow: inset 0 0 0 8px rgba(216,174,94,.035),0 20px 42px rgba(0,0,0,.28); display: grid; place-items: center; color: rgba(242,210,143,.55); font: 800 .78rem Inter,ui-sans-serif,system-ui,sans-serif; letter-spacing: .16em; text-transform: uppercase; }
+    .table-prompt { padding: 10px; text-align: center; }
+    .table-confirm { width: min(88%,250px); display: grid; gap: 9px; padding: 8px; text-align: center; letter-spacing: normal; text-transform: none; }
+    .table-confirm-name { color: var(--text); font-size: clamp(.9rem,2.1vw,1.15rem); font-weight: 900; line-height: 1.12; overflow-wrap: anywhere; }
+    .table-confirm-actions { display: grid; grid-template-columns: minmax(0,.8fr) minmax(0,1.2fr); gap: 7px; }
+    .table-confirm-actions button { min-height: 42px; padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.055); color: var(--muted); font: 850 clamp(.7rem,1.7vw,.84rem) Inter,ui-sans-serif,system-ui,sans-serif; cursor: pointer; }
+    .table-confirm-actions .confirm-player { border-color: var(--gold-2); background: linear-gradient(135deg,var(--gold-2),var(--gold)); color: #17130c; }
+    .seat-button { position: absolute; transform: translate(-50%,-50%); width: clamp(68px,9vw,88px); aspect-ratio: 1; padding: 7px; border: 1px solid var(--line); border-radius: 15px; background: linear-gradient(160deg,#2a2f3c,#1b1e27); color: var(--text); font-weight: 850; line-height: 1.12; overflow: hidden; cursor: pointer; box-shadow: 0 8px 22px rgba(0,0,0,.3); touch-action: none; }
+    .seat-button .seat-name { display: block; overflow-wrap: anywhere; }
+    .seat-button small { display: block; margin-top: 5px; color: var(--muted); font-size: .68rem; font-weight: 750; }
+    .seat-button.selected { border-color: var(--gold-2); background: rgba(216,174,94,.2); box-shadow: 0 0 0 2px rgba(216,174,94,.36),0 8px 22px rgba(0,0,0,.3); }
+    .seat-button:disabled, .seat-button.unavailable { opacity: .38; filter: grayscale(.9); cursor: not-allowed; box-shadow: none; }
+    .seat-button.dragging { z-index: 5; border-color: var(--gold-2); transform: translate(-50%,-50%) scale(1.06); }
+    .layout-hint { margin: 12px 0 0; color: var(--muted); text-align: center; font-size: .9rem; }
+    .role-settings { margin-top: 20px; padding: 14px 16px; border: 1px solid var(--line); border-radius: 17px; background: #161920; }
+    .role-settings summary { min-height: 32px; font-weight: 800; cursor: pointer; }
+    .role-settings p { color: var(--muted); font-size: .9rem; }
+    .role-settings .grid { align-items: start; }
+    .role-settings fieldset { min-width: 0; margin: 0; padding: 10px 12px; border: 1px solid var(--line); border-radius: 12px; }
+    .role-settings legend { padding: 0 5px; color: var(--gold-2); font-weight: 750; }
+    .role-setting { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 46px; }
+    .role-setting + .role-setting { border-top: 1px solid var(--line); }
+    .role-setting label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+    .role-setting input[type="checkbox"] { width: 18px; height: 18px; margin: 0; accent-color: var(--gold); }
+    .role-setting input[type="number"] { width: 64px; min-height: 38px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--text); background: var(--panel-2); }
+    .role-setting input:disabled { opacity: .45; }
+    .callout { padding: 16px 18px; border-left: 4px solid var(--gold); border-radius: 4px 14px 14px 4px; background: rgba(216,174,94,.09); color: #ded7ca; }
+    .callout.red { border-left-color: var(--blood-2); background: rgba(164,58,58,.12); }
+    .callout.green { border-left-color: var(--good); background: rgba(99,176,140,.1); }
+    .role-card { position: relative; overflow: hidden; padding: clamp(26px,7vw,62px); min-height: 370px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid rgba(216,174,94,.5); border-radius: 28px; background: radial-gradient(circle at 85% 5%, rgba(216,174,94,.19), transparent 40%), linear-gradient(150deg,#292521,#171920 62%); box-shadow: var(--shadow); }
+    .role-card.mafia { border-color: rgba(214,91,85,.55); background: radial-gradient(circle at 85% 5%, rgba(164,58,58,.3), transparent 42%), linear-gradient(150deg,#2b1d20,#171920 62%); }
+    .role-name { font-family: Georgia, "Times New Roman", serif; font-size: clamp(2.7rem,9vw,5.8rem); line-height: .98; }
+    .role-meta { margin-top: 12px; color: var(--gold-2); font-weight: 800; text-transform: uppercase; letter-spacing: .12em; }
+    .role-card.mafia .role-meta { color: #ee8a82; }
+    .role-copy { max-width: 650px; margin-top: 18px; color: #d6d0c6; font-size: 1.08rem; }
+    .privacy { min-height: 60dvh; display: grid; place-content: center; text-align: center; }
+    .privacy > div { width: min(90vw,900px); }
+    .privacy-icon { width: 88px; height: 88px; margin: 0 auto 20px; display: grid; place-items: center; border-radius: 50%; background: rgba(216,174,94,.1); border: 1px solid rgba(216,174,94,.4); font-size: 2.1rem; }
+    .phase-list, .roster { display: grid; gap: 10px; margin-top: 20px; }
+    .roster-row { min-height: 56px; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(16,18,24,.54); }
+    .roster-row.dead { opacity: .5; text-decoration: line-through; }
+    .tag { display: inline-flex; align-items: center; min-height: 30px; padding: 5px 10px; border-radius: 999px; background: rgba(216,174,94,.12); color: var(--gold-2); font-size: .8rem; font-weight: 800; }
+    .tag.red { background: rgba(164,58,58,.17); color: #f08b83; }
+    .tag.green { background: rgba(99,176,140,.14); color: #86d0ad; }
+    .notice-list { display: grid; gap: 9px; margin-top: 18px; }
+    .notice { padding: 14px 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(10,12,17,.4); }
+    .notice strong { color: var(--gold-2); }
+    .death-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 13px; margin-top: 22px; }
+    .death { padding: 25px 18px; border: 1px solid rgba(214,91,85,.45); border-radius: 18px; background: rgba(164,58,58,.13); text-align: center; font: 700 1.45rem Georgia,serif; }
+    .vote-card { padding: 17px; border: 1px solid var(--line); border-radius: 17px; background: rgba(18,21,28,.75); }
+    .vote-card span { display: block; color: var(--muted); margin-top: 3px; }
+    .tally-list { display: grid; gap: 12px; margin-top: 22px; }
+    .tally-row { display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 18px; background: rgba(18,21,28,.75); }
+    .tally-row.selected { border-color: var(--gold-2); background: rgba(216,174,94,.11); box-shadow: inset 0 0 0 1px var(--gold); }
+    .tally-name strong { display: block; font-size: 1.08rem; }
+    .tally-name span { color: var(--muted); font-size: .88rem; }
+    .vote-power { min-width: 86px; text-align: center; font: 800 1.65rem Georgia,serif; color: var(--gold-2); }
+    .vote-power small { display: block; color: var(--muted); font: 700 .76rem Inter,ui-sans-serif,system-ui,sans-serif; text-transform: uppercase; letter-spacing: .08em; }
+    .select-elimination { min-width: 112px; min-height: 54px; }
+    .action-layout { display: grid; grid-template-columns: minmax(0,.9fr) minmax(0,1.1fr); gap: 18px; align-items: stretch; min-height: calc(100dvh - 125px); }
+    .action-layout .role-card { min-height: 0; height: 100%; padding: clamp(22px,4vw,42px); }
+    .action-layout .panel { margin-top: 0; max-height: calc(100dvh - 125px); overflow-y: auto; overscroll-behavior: contain; }
+    .action-layout .table-map { margin-left: 24px; margin-right: 24px; }
+    .action-layout .seat-button { width: 52px; font-size: .7rem; border-radius: 12px; }
+    .progress { height: 8px; margin: 0 0 20px; border-radius: 999px; overflow: hidden; background: #252935; }
+    .progress > span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,var(--blood-2),var(--gold)); transition: width .25s ease; }
+    .menu-btn { min-width: 48px; min-height: 48px; border: 1px solid var(--line); border-radius: 14px; background: rgba(26,29,37,.8); color: var(--text); }
+    .back-btn { min-height: 48px; padding: 0 16px; border: 1px solid var(--line); border-radius: 14px; background: rgba(26,29,37,.8); color: var(--text); font-weight: 800; }
+    .back-btn:disabled { opacity: .35; cursor: not-allowed; }
+    dialog { width: min(92vw,500px); padding: 0; border: 1px solid var(--line); border-radius: 22px; background: var(--panel); color: var(--text); box-shadow: var(--shadow); }
+    dialog::backdrop { background: rgba(4,5,8,.75); backdrop-filter: blur(4px); }
+    dialog .dialog-body { padding: 24px; }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 700px) {
+      .shell { padding-left: 15px; padding-right: 15px; }
+      .grid, .grid.three, .choice-grid, .name-list, .death-list { grid-template-columns: 1fr; }
+      .actions { grid-template-columns: 1fr; }
+      .actions .wide { grid-column: auto; }
+      .player-setup { grid-template-columns: minmax(0,1fr) 100px; }
+      .card-picker { grid-template-columns: repeat(3,minmax(0,1fr)); }
+      .table-controls { grid-template-columns: 1fr; }
+      .table-map, .table-map.selection-map { height: 430px; margin-left: 30px; margin-right: 30px; }
+      .seat-button { width: 66px; font-size: .76rem; }
+      .tally-row { grid-template-columns: minmax(0,1fr) auto; }
+      .select-elimination { grid-column: 1 / -1; width: 100%; }
+      .action-layout { grid-template-columns: 1fr; min-height: 0; }
+      .action-layout .role-card { height: auto; }
+      .action-layout .panel { max-height: none; overflow: visible; }
+      .status-pill { font-size: .78rem; }
+      .role-card { min-height: 410px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <main id="app" class="shell" aria-live="polite"></main>
+  <dialog id="menuDialog">
+    <div class="dialog-body">
+      <p class="eyebrow">Game menu</p>
+      <h2>Pause the table</h2>
+      <p class="lead">Your game saves automatically on this device.</p>
+      <div class="actions">
+        <button class="btn" onclick="Game.closeMenu()">Return to game</button>
+        <button class="btn danger" onclick="Game.confirmReset()">Start a new game</button>
+      </div>
+    </div>
+  </dialog>
+  <script>
+  'use strict';
+  const STORAGE_KEY = 'mafia-night-runner-v2';
+  const ROLES = {
+    Mafioso: { alignment:'Mafia', category:'Mafioso', copy:'Choose a player to shoot during the final Mafia phase. You may target anyone, including yourself.' },
+    Auditor: { alignment:'Mafia', category:'Auditor', copy:'Investigate one player and secretly remove one of their votes for the following day.' },
+    Consort: { alignment:'Mafia', category:'Mafia Support', copy:'Choose one player to Block. Mafia Support and Town Support are immune, but still learn that an attempt occurred.' },
+    Consigliere: { alignment:'Mafia', category:'Mafia Support', copy:'During the final Mafia phase, learn one player’s exact role.' },
+    Witch: { alignment:'Mafia', category:'Mafia Support', copy:'Control one eligible player and force one action onto your chosen target. Town Support and non-Auditor Mafia are immune, but still learn that an attempt occurred.' },
+    Blackmailer: { alignment:'Mafia', category:'Mafia Support', copy:'Choose one player who may only vote during the following day.' },
+    Tavernkeeper: { alignment:'Town', category:'Town Support', copy:'Choose one player to Block. Mafia Support and Town Support are immune, but the Mafioso and Auditor are not.' },
+    Admirer: { alignment:'Town', category:'Town Support', copy:'Protect one player from Blocking, Witching, Blackmail, Auditor vote removal, and Vigilante guilt.' },
+    Catalyst: { alignment:'Town', category:'Town Support', copy:'Choose one player. They receive two actions on the following night.' },
+    Sheriff: { alignment:'Town', category:'Other Town', copy:'Investigate one player and learn whether they appear Good or Bad.' },
+    Lookout: { alignment:'Town', category:'Other Town', copy:'Watch one player. On the following night, learn who visited them.' },
+    Vigilante: { alignment:'Town', category:'Other Town', copy:'Beginning on Night 2, choose one player to shoot. Killing Town creates guilt.' },
+    Veteran: { alignment:'Town', category:'Other Town', copy:'Activate to shoot every Mafia visitor and become immune to death that night.' },
+    Cleric: { alignment:'Town', category:'Other Town', copy:'Protect one player from every shot that night. You may protect yourself once per game.' },
+    Pilgrim: { alignment:'Town', category:'Other Town', copy:'You have no night ability.' },
+    Aristocrat: { alignment:'Town', category:'Other Town', copy:'Assign your extra vote to a player. While alive, you may change the assignment each night.' }
+  };
+  const SUPPORT_ROLES = ['Consort','Consigliere','Witch','Blackmailer'];
+  const TOWN_SUPPORT_ROLES = ['Tavernkeeper','Admirer','Catalyst'];
+  const RANDOM_TOWN_ROLES = ['Sheriff','Lookout','Vigilante','Veteran','Cleric','Pilgrim','Aristocrat'];
+  const ROLE_POOLS = [SUPPORT_ROLES,TOWN_SUPPORT_ROLES,RANDOM_TOWN_ROLES];
+  const TOWN_GUARANTEE_GROUPS = [
+    {key:'investigative',label:'Town Investigative',roles:['Sheriff','Lookout']},
+    {key:'killing',label:'Town Killing',roles:['Vigilante','Veteran']}
+  ];
+  const DEFAULT_GUARANTEES = {investigative:2,killing:1,Cleric:1};
+  const CARD_RANKS = ['K','Q','J','3','5','6','7'];
+  const CARD_SUITS = ['♠','♥','♦','♣'];
+  const PLAYING_CARDS = CARD_RANKS.flatMap(rank=>CARD_SUITS.map(suit=>rank+suit));
+  const PHASE_NAMES = { 1:'Mafia Support', 2:'Town Support', 3:'Other Town', 4:'Auditor', 5:'Mafia' };
+  let state = loadState() || freshState();
+  normalizeLayoutState();
+  let undoHistory = [];
+  let renderedSnapshot = JSON.stringify(state);
+  let restoringState = false;
+  let pendingPlayerSelection = null;
+  let draggingSeatIndex = null;
+  let lastViewKey = null;
+
+  function freshState() {
+    return {
+      version: 2,
+      mode: 'setup',
+      setup: { count:10, names:Array.from({length:10},(_,i)=>`Player ${i+1}`), cards:[], tableWidth:58, tableHeight:38, seats:defaultSeats(10) },
+      players: [], cardDeck:[], night:1, revealIndex:0, revealOpen:false,
+      tableLayout:{width:58,height:38},
+      pendingCatalysts: [], guiltDue:{}, lastEffects:{}, dayAuditTargets:[], dayBlackmailed:[],
+      nightState:null, nightResult:null, votes:null, winner:null, debugNights:[]
+    };
+  }
+  function loadState() { try { const raw=localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; } }
+  function saveState() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} }
+  function defaultSeats(count) {
+    return Array.from({length:count},(_,i)=>{
+      const around=((i+.5)/count)*4, sideIndex=Math.min(3,Math.floor(around)), pos=around-sideIndex;
+      return {side:['top','right','bottom','left'][sideIndex],pos:Math.max(.04,Math.min(.96,pos))};
+    });
+  }
+  function normalizeLayoutState() {
+    if(!Array.isArray(state.debugNights)) state.debugNights=[];
+    if(!state.setup) return;
+    const s=state.setup;
+    s.tableWidth=Number.isFinite(s.tableWidth)?s.tableWidth:58;
+    s.tableHeight=Number.isFinite(s.tableHeight)?s.tableHeight:38;
+    if(!Array.isArray(s.seats)) s.seats=[];
+    const defaults=defaultSeats(s.count);
+    while(s.seats.length<s.count) s.seats.push(defaults[s.seats.length]);
+    s.seats=s.seats.slice(0,s.count).map((seat,i)=>seat&&['top','right','bottom','left'].includes(seat.side)?{side:seat.side,pos:Math.max(.04,Math.min(.96,Number(seat.pos)||.5))}:defaults[i]);
+    if(!state.tableLayout) state.tableLayout={width:s.tableWidth,height:s.tableHeight};
+    if(Array.isArray(state.players)&&state.players.length){
+      const playerDefaults=defaultSeats(state.players.length);
+      state.players.forEach((p,i)=>{ if(!p.seat) p.seat=playerDefaults[i]; });
+    }
+  }
+  function esc(value='') { return String(value).replace(/[&<>'"]/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[c])); }
+  function shuffle(items) { const a=[...items]; for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+  function pick(items) { return items[Math.floor(Math.random()*items.length)]; }
+  function byId(id) { return state.players.find(p=>p.id===id); }
+  function alive() { return state.players.filter(p=>p.alive); }
+  function isMafia(p) { return p && ROLES[p.role]?.alignment==='Mafia'; }
+  function deckEntry(card) { return state.cardDeck?.find(entry=>entry.card===card); }
+  function playerByCard(card) { return state.players.find(p=>p.card===card); }
+  function turnPlayer(ref) { return byId(ref)||playerByCard(ref); }
+  function unassignedPlayers() { return alive().filter(p=>!p.card); }
+  function assignCardHolder(card,id) {
+    const entry=deckEntry(card), p=byId(id);
+    if(!entry||!p||entry.holderId||p.card) return null;
+    entry.holderId=id; p.card=entry.card; p.category=entry.category; p.role=entry.role; p.revealedExact=true;
+    if(p.role==='Aristocrat') p.aristocratRecipient=p.id;
+    return p;
+  }
+  function cardRank(card='') { return card.slice(0,-1); }
+  function orderedTownCards() {
+    return state.cardDeck.filter(entry=>entry.category==='Other Town').slice().sort((a,b)=>
+      Number(cardRank(a.card))-Number(cardRank(b.card))||CARD_SUITS.indexOf(a.card.slice(-1))-CARD_SUITS.indexOf(b.card.slice(-1)));
+  }
+  function cardMarkup(card) { const red=card.endsWith('♥')||card.endsWith('♦'); return `<span class="playing-card ${red?'red':''}">${esc(card)}</span>`; }
+  function cardLabel(card) { const names={'♠':'spades','♥':'hearts','♦':'diamonds','♣':'clubs'}; return `${cardRank(card)} of ${names[card.slice(-1)]}`; }
+  function cardCategory(card) {
+    const rank=cardRank(card);
+    if(state.setup.necronomicon&&['K','Q','J'].includes(rank)) return 'Mafia Support';
+    return ({K:'Mafioso',Q:'Auditor',J:'Mafia Support','3':'Town Support','5':'Other Town','6':'Other Town','7':'Other Town'})[rank];
+  }
+  function wakeList(players) {
+    const cards=players.filter(Boolean).map(p=>p.card);
+    if(!cards.length) return 'No one';
+    if(cards.length===1) return cards[0];
+    return cards.slice(0,-1).join(', ')+' and '+cards.at(-1);
+  }
+  function topbar(label='') {
+    const active = state.mode!=='setup';
+    return active?`<header class="topbar"><button class="back-btn" ${undoHistory.length?'':'disabled'} onclick="Game.goBack()" aria-label="Undo the last step">← Back</button><div style="display:flex;gap:9px;align-items:center"><span class="status-pill">${esc(label||`Night ${state.night}`)}</span><button class="menu-btn" aria-label="Open game menu" onclick="Game.openMenu()">•••</button></div></header>`:'';
+  }
+  function progress(current,total) { const pct=total?Math.max(4,Math.round(current/total*100)):0; return `<div class="progress" aria-label="Progress"><span style="width:${pct}%"></span></div>`; }
+  function currentViewKey() {
+    if(state.mode==='roleReveal') return `roleReveal:${state.revealIndex}:${state.revealOpen?'open':'pass'}`;
+    if(state.mode==='night') {
+      const ns=state.nightState||{};
+      const card=ns.screen==='identify'?(ns.identifyQueue?.[0]||''):'';
+      return `night:${state.night}:${ns.screen||''}:${ns.actorIndex??0}:${card}`;
+    }
+    return `${state.mode}:${state.night}`;
+  }
+  function main(content,label='') {
+    const viewKey=currentViewKey(), entering=viewKey!==lastViewKey;
+    document.getElementById('app').innerHTML=topbar(label)+`<section class="screen${entering?' is-entering':''}">${content}</section>`;
+    lastViewKey=viewKey;
+    saveState();
+  }
+  function button(label,action,cls='btn',sub='') { return `<button class="${cls}" onclick="${action}">${esc(label)}${sub?`<small>${esc(sub)}</small>`:''}</button>`; }
+  function seatCoordinates(seat,width,height) {
+    const gap=10, halfW=width/2, halfH=height/2, pos=Math.max(.04,Math.min(.96,seat?.pos??.5));
+    if(seat?.side==='right') return {x:50+halfW+gap,y:50-halfH+pos*height};
+    if(seat?.side==='bottom') return {x:50+halfW-pos*width,y:50+halfH+gap};
+    if(seat?.side==='left') return {x:50-halfW-gap,y:50+halfH-pos*height};
+    return {x:50-halfW+pos*width,y:50-halfH-gap};
+  }
+  function tableMapShell(buttons,width,height,extraClass='',centerContent='Table') {
+    return `<div class="table-map ${extraClass}" data-table-map style="--table-width:${width};--table-height:${height}"><div class="table-surface" style="width:${width}%;height:${height}%">${centerContent}</div>${buttons}</div>`;
+  }
+  function setupTableDiagram() {
+    const s=state.setup, defaults=defaultSeats(s.count);
+    const buttons=s.names.slice(0,s.count).map((name,i)=>{
+      const seat=s.seats[i]||defaults[i], point=seatCoordinates(seat,s.tableWidth,s.tableHeight);
+      return `<button type="button" class="seat-button" data-seat-index="${i}" style="left:${point.x}%;top:${point.y}%" aria-label="Drag ${esc(name||`Player ${i+1}`)} to their seat" onpointerdown="Game.startSeatDrag(event,${i})" onpointermove="Game.moveSeatDrag(event,${i})" onpointerup="Game.endSeatDrag(event,${i})" onpointercancel="Game.endSeatDrag(event,${i})"><span class="seat-name">${esc(name||`Player ${i+1}`)}</span><small>Drag me</small></button>`;
+    }).join('');
+    return tableMapShell(buttons,s.tableWidth,s.tableHeight,'setup-map');
+  }
+  function playerDiagram(legalPlayers,onPick,selected=[],subFor=null) {
+    const legalIds=new Set(legalPlayers.map(p=>p.id)), layout=state.tableLayout||{width:58,height:38}, defaults=defaultSeats(state.players.length);
+    const pending=pendingPlayerSelection?.action===onPick?pendingPlayerSelection:null;
+    const highlighted=new Set([...selected,...(pending?[pending.id]:[])]);
+    const buttons=state.players.map((p,i)=>{
+      const legal=legalIds.has(p.id), point=seatCoordinates(p.seat||defaults[i],layout.width,layout.height), sub=legal?(subFor?subFor(p):'Select'):(p.alive?'Unavailable':'Dead');
+      return `<button type="button" class="seat-button ${highlighted.has(p.id)?'selected':''} ${legal?'':'unavailable'}" style="left:${point.x}%;top:${point.y}%" ${legal?'':`disabled aria-disabled="true"`} ${legal?`onclick="Game.requestPlayerSelection('${onPick}','${p.id}')"`:''}><span class="seat-name">${esc(p.name)}</span><small>${esc(sub)}</small></button>`;
+    }).join('');
+    const empty=legalPlayers.length?'':'<div class="callout">No legal targets are available.</div>';
+    const chosen=pending?byId(pending.id):null;
+    const center=chosen
+      ? `<div class="table-confirm"><div class="table-confirm-name">${esc(chosen.name)}</div><div class="table-confirm-actions"><button type="button" onclick="Game.cancelPlayerConfirmation()">Change</button><button type="button" class="confirm-player" onclick="Game.confirmPlayerSelection()">Confirm</button></div></div>`
+      : '<div class="table-prompt">Select a player</div>';
+    return `${empty}${tableMapShell(buttons,layout.width,layout.height,'selection-map',center)}`;
+  }
+  function targetButtons(players,onPick,selected=[],subFor=null) {
+    return playerDiagram(players,onPick,selected,subFor);
+  }
+  function roleBadge(role) { return `<span class="tag ${ROLES[role]?.alignment==='Mafia'?'red':'green'}">${esc(role)}</span>`; }
+  function phaseHeader(phase,kicker,title,copy='') {
+    return `<p class="eyebrow">Phase ${phase} · ${esc(PHASE_NAMES[phase])}</p><h2>${esc(title)}</h2>${copy?`<p class="lead">${esc(copy)}</p>`:''}`;
+  }
+  function notices(items) { return items?.length ? `<div class="notice-list">${items.map(x=>`<div class="notice">${x}</div>`).join('')}</div>` : ''; }
+
+  function render() {
+    const before=JSON.stringify(state);
+    const stateChanged=Boolean(renderedSnapshot&&before!==renderedSnapshot);
+    if(stateChanged) pendingPlayerSelection=null;
+    if(!restoringState&&stateChanged){
+      undoHistory.push(renderedSnapshot);
+      if(undoHistory.length>100) undoHistory.shift();
+    }
+    try {
+      if(state.mode==='setup') return renderSetup();
+      if(state.mode==='roleReveal') return renderRoleReveal();
+      if(state.mode==='night') return renderNight();
+      if(state.mode==='nightResult') return renderNightResult();
+      if(state.mode==='day') return renderDay();
+      if(state.mode==='voting') return renderVoting();
+      if(state.mode==='voteResult') return renderVoteResult();
+      if(state.mode==='gameOver') return renderGameOver();
+    } finally {
+      renderedSnapshot=JSON.stringify(state);
+      restoringState=false;
+    }
+  }
+
+  function roleEnabled(role) { return !state.setup.disabledRoles?.includes(role); }
+  function roleGuarantee(key) { return (state.setup.roleGuarantees ?? DEFAULT_GUARANTEES)[key] ?? 0; }
+  function guaranteeLimit(key) {
+    if(key==='Consigliere') return 1;
+    const category=ROLES[key]?.category;
+    if(category==='Mafia Support') return state.setup.necronomicon ? 6 : 4;
+    return category==='Town Support' ? 4 : 12;
+  }
+  function guaranteedRolePools(pool) {
+    const required=pool.filter(roleEnabled).flatMap(role=>Array.from({length:roleGuarantee(role)},()=>[role]));
+    if(pool===RANDOM_TOWN_ROLES) {
+      for(const group of TOWN_GUARANTEE_GROUPS) {
+        const enabled=group.roles.filter(roleEnabled);
+        const covered=enabled.reduce((sum,role)=>sum+roleGuarantee(role),0);
+        if(!enabled.length) continue;
+        for(let i=covered;i<roleGuarantee(group.key);i++) required.push(enabled);
+      }
+    }
+    return required;
+  }
+  function rolePoolError(pool,count) {
+    const category=ROLES[pool[0]].category, enabled=pool.filter(roleEnabled);
+    const required=guaranteedRolePools(pool).length;
+    if(required>count) return `${category} needs ${required} card slots for the guarantees and has ${count}. Add cards or lower the minimums.`;
+    if(count&&!enabled.length) return `Enable a ${category} role or remove its cards.`;
+    if(enabled.length===1&&enabled[0]==='Consigliere'&&count>1) return 'Only one Consigliere can appear. Enable another Mafia Support role or use one Jack.';
+    return '';
+  }
+  function guaranteeInput(key,label,disabled=false) {
+    return `<input id="minimum-${key}" type="number" min="0" max="${guaranteeLimit(key)}" step="1" value="${disabled?0:roleGuarantee(key)}" aria-label="Guaranteed ${label}" ${disabled?'disabled':''} onchange="this.value=Game.setRoleGuarantee('${key}',this.value)">`;
+  }
+  function renderRoleSettings() {
+    const open=document.getElementById?.('role-settings')?.open;
+    return `<details id="role-settings" class="role-settings" ${open?'open':''}>
+      <summary>Role settings</summary>
+      <p>Uncheck roles to exclude them. Enter the minimum number guaranteed. Remaining slots draw from enabled roles in the same category.</p>
+      <div class="grid">${ROLE_POOLS.map(pool=>`<fieldset><legend>${ROLES[pool[0]].category}</legend>
+        ${pool.map(role=>`<div class="role-setting"><label><input id="enable-${role}" type="checkbox" ${roleEnabled(role)?'checked':''} onchange="Game.setRoleEnabled('${role}',this.checked)">${role}</label>${guaranteeInput(role,role,!roleEnabled(role))}</div>`).join('')}
+      </fieldset>`).join('')}
+      <fieldset><legend>Random Town group minimums</legend>
+        <p>Individual minimums count toward their group. Investigative includes Sheriff and Lookout. Killing includes Vigilante and Veteran.</p>
+        ${TOWN_GUARANTEE_GROUPS.map(group=>`<div class="role-setting"><label for="minimum-${group.key}">${group.label}</label>${guaranteeInput(group.key,group.label,!group.roles.some(roleEnabled))}</div>`).join('')}
+      </fieldset></div>
+    </details>`;
+  }
+  function setRoleEnabled(role,enabled) {
+    if(state.mode!=='setup'||!ROLE_POOLS.some(pool=>pool.includes(role))) return;
+    const s=state.setup, disabled=new Set(s.disabledRoles);
+    if(enabled) disabled.delete(role);
+    else disabled.add(role);
+    s.disabledRoles=[...disabled];
+    render();
+    document.getElementById?.(`enable-${role}`)?.focus();
+  }
+  function setRoleGuarantee(key,value) {
+    if(state.mode!=='setup') return;
+    const group=TOWN_GUARANTEE_GROUPS.find(group=>group.key===key);
+    const eligible=group ? group.roles.some(roleEnabled) : ROLE_POOLS.some(pool=>pool.includes(key))&&roleEnabled(key);
+    if(!eligible) return;
+    const count=Math.max(0,Math.min(guaranteeLimit(key),Math.floor(Number(value)||0)));
+    state.setup.roleGuarantees ??= {...DEFAULT_GUARANTEES};
+    state.setup.roleGuarantees[key]=count;
+    refreshSetupValidity();
+    saveState();
+    return count;
+  }
+  function refreshSetupValidity() {
+    const message=document.getElementById?.('setup-error'), start=document.getElementById?.('start-game');
+    if(!message||!start) return;
+    const error=setupValidity();
+    message.textContent=error;
+    message.hidden=!error;
+    start.disabled=Boolean(error);
+  }
+
+  function setupValidity() {
+    const s=state.setup;
+    if(s.names.slice(0,s.count).some(n=>!n.trim())) return 'Every player needs a name.';
+    const lower=s.names.slice(0,s.count).map(n=>n.trim().toLowerCase());
+    if(new Set(lower).size!==lower.length) return 'Player names must be unique.';
+    const cards=s.cards;
+    if(cards.length!==s.count) return `Choose exactly ${s.count} cards that are in play.`;
+    if(cards.some(card=>!PLAYING_CARDS.includes(card))) return 'Every selected card must be a King, Queen, Jack, Three, Five, Six, or Seven.';
+    if(new Set(cards).size!==cards.length) return 'Playing cards must be unique.';
+    const counts=Object.fromEntries(CARD_RANKS.map(rank=>[rank,cards.filter(card=>cardRank(card)===rank).length]));
+    if(state.setup.necronomicon) {
+      if(counts.K>1) return 'Use no more than one King.';
+      if(!counts.K&&!counts.Q&&!counts.J) return 'Use at least one King, Queen, or Jack for Mafia Support.';
+    } else if(counts.K!==1) return 'Use exactly one King for the Mafioso.';
+    if(counts.Q>1) return 'Use no more than one Queen for the Auditor.';
+    const slots=[mafiaSupportSlots(counts),counts['3'],counts['5']+counts['6']+counts['7']];
+    for(const [i,pool] of ROLE_POOLS.entries()) {
+      const error=rolePoolError(pool,slots[i]);
+      if(error) return error;
+    }
+    return '';
+  }
+  function mafiaSupportSlots(counts) {
+    return counts.J+(state.setup.necronomicon ? counts.K+counts.Q : 0);
+  }
+  function setNecronomicon(enabled) {
+    if(state.mode!=='setup') return;
+    state.setup.necronomicon=enabled;
+    render();
+    document.getElementById?.('necronomicon')?.focus();
+  }
+  function renderSetup() {
+    const s=state.setup, cards=s.cards, error=setupValidity();
+    const counts=Object.fromEntries(CARD_RANKS.map(rank=>[rank,cards.filter(card=>cardRank(card)===rank).length]));
+    main(`<div class="panel" style="margin-top:0"><div class="stepper"><div><strong>Players</strong></div><div class="stepper-controls"><button aria-label="Remove player" onclick="Game.adjustPlayers(-1)">−</button><output>${s.count}</output><button aria-label="Add player" onclick="Game.adjustPlayers(1)">+</button></div></div>
+      <div class="role-settings">
+        <div class="role-setting"><label><input id="necronomicon" type="checkbox" ${s.necronomicon?'checked':''} onchange="Game.setNecronomicon(this.checked)" aria-describedby="necronomicon-help">Necronomicon</label></div>
+        <p id="necronomicon-help">All Mafia start as Mafia Support. Each night, they choose one of their own as Mafioso. That player shoots in place of using their usual ability and appears Good to the Sheriff.</p>
+      </div>
+      <div class="setup-summary">${s.necronomicon?'':`<span class="tag red">Mafioso ${counts.K}</span><span class="tag red">Auditor ${counts.Q}</span>`}<span class="tag red">Mafia Support ${mafiaSupportSlots(counts)}</span><span class="tag green">Town Support ${counts['3']}</span><span class="tag green">Random Town ${counts['5']+counts['6']+counts['7']}</span></div>
+      <p>Choose the cards you’ll deal. ${s.necronomicon?'Kings, Queens, and Jacks each add one Mafia Support slot.':'Each Jack adds one Mafia Support slot. Use one King for the Mafioso and a Queen to include the Auditor.'} Each Three adds one Town Support slot. Each Five, Six, or Seven adds one Random Town slot.</p>
+      <div class="card-picker">${PLAYING_CARDS.map(card=>{const selected=cards.includes(card), rank=cardRank(card), rankTaken=['K','Q'].includes(rank)&&cards.some(chosen=>cardRank(chosen)===rank); const disabled=!selected&&(cards.length>=s.count||rankTaken); return `<button class="card-choice ${selected?'selected':''}" aria-pressed="${selected}" aria-label="${selected?'Remove':'Add'} ${esc(cardLabel(card))}" ${disabled?'disabled':''} onclick="Game.toggleSetupCard('${card}')">${cardMarkup(card)}</button>`;}).join('')}</div>
+      ${renderRoleSettings()}
+      <div class="rule"></div><div class="name-list">${s.names.slice(0,s.count).map((n,i)=>`<div class="field"><label for="name${i}">Player ${i+1}</label><input id="name${i}" value="${esc(n)}" maxlength="28" autocomplete="off" oninput="Game.setName(${i},this.value)"></div>`).join('')}</div>
+      <div class="rule"></div><p class="eyebrow">Table layout</p><div class="table-controls"><div class="stepper"><div><strong>Table width</strong></div><div class="stepper-controls"><button aria-label="Make table narrower" onclick="Game.adjustTableDimension('width',-4)">−</button><output>${s.tableWidth}%</output><button aria-label="Make table wider" onclick="Game.adjustTableDimension('width',4)">+</button></div></div><div class="stepper"><div><strong>Table height</strong></div><div class="stepper-controls"><button aria-label="Make table shorter" onclick="Game.adjustTableDimension('height',-4)">−</button><output>${s.tableHeight}%</output><button aria-label="Make table taller" onclick="Game.adjustTableDimension('height',4)">+</button></div></div><button class="btn ghost" onclick="Game.resetSeatPositions()">Reset seats</button></div><p class="layout-hint">Drag each player to match where they are sitting.</p>${setupTableDiagram()}
+      <div id="setup-error" class="callout red" style="margin-top:18px" ${error?'':'hidden'}>${esc(error)}</div>
+      <div class="actions"><button id="start-game" class="btn primary wide" ${error?'disabled':''} onclick="Game.createGame()">Assign roles & begin</button></div></div>`);
+  }
+  function generateRoles(pool,count) {
+    const roles=guaranteedRolePools(pool).map(pick);
+    let eligible=pool.filter(roleEnabled);
+    if(roles.includes('Consigliere')) eligible=eligible.filter(role=>role!=='Consigliere');
+    while(roles.length<count) {
+      const role=pick(eligible);
+      roles.push(role);
+      if(role==='Consigliere') eligible=eligible.filter(role=>role!=='Consigliere');
+    }
+    return shuffle(roles);
+  }
+  function generateTownRoles(count) { return generateRoles(RANDOM_TOWN_ROLES,count); }
+  function generateSupportRoles(count) { return generateRoles(SUPPORT_ROLES,count); }
+  function createGame() {
+    const error=setupValidity(); if(error) return renderSetup();
+    const s=state.setup, cards=[...s.cards], categories=cards.map(cardCategory);
+    const supportRoles=generateSupportRoles(categories.filter(x=>x==='Mafia Support').length), townSupport=generateRoles(TOWN_SUPPORT_ROLES,categories.filter(x=>x==='Town Support').length), townRoles=generateTownRoles(categories.filter(x=>x==='Other Town').length);
+    state.cardDeck=cards.map((card,i)=>{
+      const category=categories[i];
+      let role=category;
+      if(category==='Mafia Support') role=supportRoles.pop();
+      if(category==='Town Support') role=townSupport.pop();
+      if(category==='Other Town') role=townRoles.pop();
+      return {card,category,role,holderId:null};
+    });
+    state.tableLayout={width:s.tableWidth,height:s.tableHeight};
+    state.players=s.names.slice(0,s.count).map((name,i)=>({id:`p${i+1}`,name:name.trim(),seat:{...s.seats[i]},card:null,category:null,role:null,alive:true,revealedExact:false,selfProtectUsed:false,veteranActivations:0,veteranLostSecond:false,aristocratRecipient:null,lookoutInbox:[]}));
+    state.revealIndex=0; state.revealOpen=false; state.night=1; state.pendingCatalysts=[]; state.guiltDue={}; state.lastEffects={}; state.dayAuditTargets=[]; state.dayBlackmailed=[]; state.winner=null; state.debugNights=[];
+    startNight();
+  }
+  function initialCard(p) {
+    if(p.category==='Mafioso'||p.category==='Auditor') return {name:p.role,meta:ROLES[p.role].alignment,copy:ROLES[p.role].copy};
+    if(p.category==='Mafia Support') return {name:'Mafia Support',meta:'Mafia',copy:'Your exact support role will be assigned when the Mafia first wake on Night 1.'};
+    if(p.category==='Town Support') return {name:'Town Support',meta:'Town',copy:'Your exact support role will be assigned when you first wake on Night 1.'};
+    return {name:'Random Town',meta:'Town',copy:'Your exact role will be assigned when you first wake on Night 1.'};
+  }
+  function renderRoleReveal() {
+    const p=state.players[state.revealIndex], total=state.players.length;
+    if(!state.revealOpen) return main(`${progress(state.revealIndex,total)}<div class="privacy"><div><div class="privacy-icon">◐</div><p class="eyebrow">Private role ${state.revealIndex+1} of ${total}</p><h2>Pass to ${esc(p.name)}</h2><p class="lead" style="margin-left:auto;margin-right:auto">${cardMarkup(p.card)} · Everyone else should look away.</p><div class="actions"><button class="btn primary wide" onclick="Game.openReveal()">I’m ${esc(p.name)} — reveal my role</button></div></div></div>`,'Role cards');
+    const card=initialCard(p), teammates=state.players.filter(x=>x.id!==p.id&&x.category!=='Auditor'&&x.category!=='Town Support'&&x.category!=='Other Town');
+    const mafiaInfo=card.meta==='Mafia'&&p.category!=='Auditor'?`<div class="callout red" style="margin-top:22px"><strong>Your known Mafia:</strong> ${teammates.map(x=>esc(x.name)+(x.category==='Mafioso'?' — Mafioso':' — Mafia Support')).join(', ')||'None'}</div>`:'';
+    return main(`${progress(state.revealIndex+1,total)}<article class="role-card ${card.meta==='Mafia'?'mafia':''}"><div><p class="eyebrow">${esc(p.name)} · ${cardMarkup(p.card)}</p><div class="role-name">${esc(card.name)}</div><div class="role-meta">${esc(card.meta)}</div><p class="role-copy">${esc(card.copy)}</p>${mafiaInfo}</div><button class="btn primary" onclick="Game.nextReveal()">Hide role & continue</button></article>`,'Role cards');
+  }
+
+  function nightRole(p) {
+    const chosen=state.nightState?.necronomiconMafiosoId;
+    return chosen&&p?.id===chosen ? 'Mafioso' : p?.role;
+  }
+  function nightMafioso() { return alive().find(p=>nightRole(p)==='Mafioso'); }
+  function isMafiaSupport(p) { return ROLES[nightRole(p)]?.category==='Mafia Support'; }
+  function mafiaWakeCards() {
+    return state.cardDeck.filter(entry=>entry.category==='Mafioso'||entry.category==='Mafia Support');
+  }
+  function rebuildMafiaActors() {
+    const ns=state.nightState;
+    ns.supportActors=alive().filter(p=>isMafiaSupport(p)&&nightRole(p)!=='Consigliere').map(p=>p.id);
+    ns.consigActors=alive().filter(p=>nightRole(p)==='Consigliere').map(p=>p.id);
+  }
+  function isTownSupport(p) { return p && ROLES[p.role]?.category==='Town Support'; }
+  function hasPriorBW(id) { return !!state.lastEffects[id]?.blockOrWitch; }
+  function hasPriorBlackmail(id) { return !!state.lastEffects[id]?.blackmail; }
+  function nightActions(type,targetKey='targetId',targetId=null) {
+    const list=state.nightState?.actions||[];
+    return list.filter(a=>a.type===type&&(targetId===null||a[targetKey]===targetId));
+  }
+  function isAdmired(id) { return nightActions('admire','targetId',id).length>0; }
+  function effectFor(id) {
+    const p=byId(id), admired=isAdmired(id), blockAttempts=nightActions('block','targetId',id);
+    const blockRoleImmune=a=>isTownSupport(p)||isMafiaSupport(p)||(a.sourceRole==='Consort'&&isMafia(p)&&p.role!=='Auditor');
+    const blockImmuneAttempted=!admired&&blockAttempts.some(blockRoleImmune);
+    const validBlocks=blockAttempts.filter(a=>{
+      if(admired||hasPriorBW(id)||blockRoleImmune(a)) return false;
+      return true;
+    });
+    const witchAttempts=nightActions('witch','controlledId',id);
+    const witchRoleImmune=isTownSupport(p)||(isMafia(p)&&p.role!=='Auditor');
+    const witchImmuneAttempted=!admired&&witchRoleImmune&&witchAttempts.length>0;
+    const validWitches=witchAttempts.filter(a=>{
+      if(admired||hasPriorBW(id)||witchRoleImmune) return false;
+      // A forced Cleric self-protection consumes its limit, but remains a successful Witch effect.
+      return a.applied===true||canForceAction(p,a.forcedId);
+    });
+    const blackmailAttempts=nightActions('blackmail','targetId',id);
+    const blackmailRoleImmune=isMafia(p)&&p.role!=='Auditor';
+    const blackmailImmuneAttempted=!admired&&blackmailRoleImmune&&blackmailAttempts.length>0;
+    const validBlackmail=blackmailAttempts.filter(a=>!(admired||hasPriorBlackmail(id)||blackmailRoleImmune));
+    return {
+      admired,
+      blockCount:validBlocks.length,
+      witchCount:validWitches.length,
+      blackmailCount:validBlackmail.length,
+      blockAttemptCount:blockAttempts.length,
+      witchAttemptCount:witchAttempts.length,
+      blackmailAttemptCount:blackmailAttempts.length,
+      blockImmuneCount:admired?0:blockAttempts.filter(blockRoleImmune).length,
+      witchImmuneCount:witchImmuneAttempted?witchAttempts.length:0,
+      blackmailImmuneCount:blackmailImmuneAttempted?blackmailAttempts.length:0,
+      blocked:validBlocks.length>0,
+      blockAttempted:blockAttempts.length>0,
+      blockImmuneAttempted,
+      witch:validWitches[0]||null,
+      witchAttempted:witchAttempts.length>0,
+      witchImmuneAttempted,
+      blackmailed:validBlackmail.length>0,
+      blackmailAttempted:blackmailAttempts.length>0,
+      blackmailImmuneAttempted
+    };
+  }
+  function addVisit(actorId,targetId) {
+    if(!targetId||actorId===targetId) return;
+    const ns=state.nightState;
+    if(!ns.visits.some(v=>v.actorId===actorId&&v.targetId===targetId)) ns.visits.push({actorId,targetId});
+  }
+  function recordAction(action) {
+    action.order=state.nightState.actions.length;
+    state.nightState.actions.push(action);
+    if(action.type==='witch') addVisit(action.actorId,action.controlledId);
+    else if(action.type!=='veteran'&&action.targetId) addVisit(action.actorId,action.targetId);
+  }
+  function activeCatalyzed(id) { return state.nightState.activeCatalysts.includes(id); }
+  function catalystCount(id) { return state.nightState.activeCatalysts.filter(targetId=>targetId===id).length; }
+  function effectTimes(count) { return `${count} ${count===1?'time':'times'}`; }
+  function effectNotice(effect,count) { return `<strong>You were ${effect} ${effectTimes(count)}.</strong>`; }
+  function immuneNotice(effect,count) { return `<strong>${effect} was attempted against you ${effectTimes(count)}.</strong> Your role is immune, so ${count===1?'the attempt had':'the attempts had'} no effect.`; }
+  function legalTargets(role,actorId,priorTargets=[]) {
+    const actor=byId(actorId);
+    return alive().filter(t=>{
+      if(priorTargets.includes(t.id)) return false;
+      const self=t.id===actorId;
+      if(self&&!['Mafioso','Cleric','Aristocrat'].includes(role)) return false;
+      if(role==='Cleric'&&self&&actor.selfProtectUsed) return false;
+      return true;
+    });
+  }
+  function roleHasTargetedAction(role) { return !['Veteran','Pilgrim'].includes(role); }
+  function canForceAction(player,targetId) {
+    const role=nightRole(player);
+    if(!player||!ROLES[role]||!roleHasTargetedAction(role)) return false;
+    if(role==='Vigilante'&&(state.night===1||((state.guiltDue[player.id]||0)>0&&!isAdmired(player.id)))) return false;
+    return legalTargets(role,player.id).some(target=>target.id===targetId);
+  }
+  function sheriffResult(target) {
+    if(target.role==='Auditor') return 'Bad';
+    if(nightRole(target)==='Mafioso') return state.setup.necronomicon||alive().filter(isMafia).length>1?'Good':'Bad';
+    return isMafia(target)?'Bad':'Good';
+  }
+  function applyTargetAction(plan,targetId,forced=false) {
+    const actor=byId(plan.actorId), target=byId(targetId), role=nightRole(actor);
+    if(!target||!target.alive) return false;
+    const self=actor.id===target.id;
+    if(self&&!['Mafioso','Cleric','Aristocrat'].includes(role)) return false;
+    if(role==='Cleric'&&self&&actor.selfProtectUsed) return false;
+    const base={actorId:actor.id,targetId:target.id,sourceRole:role,forced};
+    if(role==='Consort'||role==='Tavernkeeper') recordAction({...base,type:'block'});
+    else if(role==='Blackmailer') recordAction({...base,type:'blackmail'});
+    else if(role==='Admirer') recordAction({...base,type:'admire'});
+    else if(role==='Catalyst') recordAction({...base,type:'catalyst'});
+    else if(role==='Sheriff') { recordAction({...base,type:'sheriff'}); plan.messages.push(`Your result for <strong>${esc(target.name)}</strong>: <strong>${sheriffResult(target)}</strong>.`); }
+    else if(role==='Lookout') { recordAction({...base,type:'lookout'}); plan.messages.push(`You are watching <strong>${esc(target.name)}</strong>. The visitor report arrives next night.`); }
+    else if(role==='Vigilante'||role==='Mafioso') recordAction({...base,type:'shot',shotRole:role});
+    else if(role==='Cleric') { recordAction({...base,type:'protect'}); if(self) actor.selfProtectUsed=true; }
+    else if(role==='Aristocrat') recordAction({...base,type:'aristocrat'});
+    else if(role==='Consigliere') { recordAction({...base,type:'consigliere'}); plan.messages.push(`<strong>${esc(target.name)}</strong> is the <strong>${esc(nightRole(target))}</strong>.`); }
+    else if(role==='Auditor') { recordAction({...base,type:'audit'}); plan.messages.push(`<strong>${esc(target.name)}</strong> is the <strong>${esc(nightRole(target))}</strong>.`); }
+    else return false;
+    return true;
+  }
+  function preparePlan(actorId,context) {
+    const p=byId(actorId), fx=effectFor(actorId), catalyzed=activeCatalyzed(actorId);
+    const role=nightRole(p);
+    p.revealedExact=true;
+    if(role==='Veteran') {
+      const available=p.veteranActivations<2&&!p.veteranLostSecond;
+      const deferredMessages=playerNotices(p);
+      return {actorId,context,remaining:available?1:0,userTargets:[],messages:available?[]:['You have no Veteran activations remaining.',...deferredMessages],deferredMessages:available?deferredMessages:[],done:!available,draftControlled:null};
+    }
+    let base=(catalyzed&&role!=='Veteran')?2:1;
+    // Stage 2 Admiration may suppress attempts made during the first Mafia wake.
+    const messages=[], deferImmuneNotices=context==='Stage 1';
+    if(catalyzed) messages.push(effectNotice('Catalyzed',catalystCount(actorId))+' You may use up to two actions tonight, subject to your role.');
+    if(fx.blackmailed) messages.push(effectNotice('Blackmailed',fx.blackmailCount)+' Tomorrow you may only vote.');
+    else if(fx.blackmailImmuneAttempted&&!deferImmuneNotices) messages.push(immuneNotice('Blackmail',fx.blackmailImmuneCount));
+    if(role==='Pilgrim') base=0;
+    if(role==='Vigilante'&&state.night===1) { base=0; messages.push('The Vigilante cannot shoot on Night 1.'); }
+    if(role==='Vigilante'&&(state.guiltDue[p.id]||0)>0&&!fx.admired) { base=0; messages.push('<strong>You have no action tonight.</strong>'); }
+    if(role==='Veteran'&&(p.veteranActivations>=2||p.veteranLostSecond)) { base=0; messages.push('You have no Veteran activations remaining.'); }
+    if(fx.blocked) {
+      if(catalyzed&&base>0) base=Math.max(0,base-1); else base=0;
+      messages.push(effectNotice('Blocked',fx.blockCount)+(catalyzed?' One of your two actions was removed.':' You have no action tonight.'));
+    } else if(fx.blockImmuneAttempted&&!deferImmuneNotices) messages.push(immuneNotice('Blocking',fx.blockImmuneCount));
+    const plan={actorId,context,remaining:base,userTargets:[],messages,done:false,draftControlled:null};
+    if(Array.isArray(p.lookoutInbox)&&p.lookoutInbox.length) { p.lookoutInbox.forEach(report=>messages.push(`<strong>Lookout report:</strong> ${report}`)); p.lookoutInbox=[]; }
+    if(fx.witch) {
+      messages.push(effectNotice('Witched',fx.witchCount)+` The forced target was ${esc(byId(fx.witch.forcedId)?.name||'unknown')}.`);
+      if(plan.remaining>0&&roleHasTargetedAction(role)) {
+        const worked=applyTargetAction(plan,fx.witch.forcedId,true);
+        if(worked) { fx.witch.applied=true; plan.remaining--; }
+      } else if(!roleHasTargetedAction(role)) messages.push('Your role has no targeted action, so the Witch could not control it.');
+    } else if(fx.witchImmuneAttempted&&!deferImmuneNotices) messages.push(immuneNotice('Witching',fx.witchImmuneCount));
+    if(plan.remaining<=0) plan.done=true;
+    return plan;
+  }
+  function playerNotices(p) {
+    const fx=effectFor(p.id), result=[];
+    if(activeCatalyzed(p.id)) result.push(effectNotice('Catalyzed',catalystCount(p.id))+(p.role==='Veteran'?' This does not grant an additional activation.':' Up to two actions are available, subject to your role and other effects.'));
+    if(fx.blocked) result.push(effectNotice('Blocked',fx.blockCount)+(p.role==='Veteran'?' You cannot activate tonight; no activation is consumed.':activeCatalyzed(p.id)?' One action has been removed.':' Your action has been removed.'));
+    else if(fx.blockImmuneAttempted) result.push(immuneNotice('Blocking',fx.blockImmuneCount));
+    if(fx.witch) result.push(effectNotice('Witched',fx.witchCount)+' One available targeted action is forced.');
+    else if(fx.witchImmuneAttempted) result.push(immuneNotice('Witching',fx.witchImmuneCount));
+    if(fx.blackmailed) result.push(effectNotice('Blackmailed',fx.blackmailCount)+' Tomorrow you may only vote.');
+    else if(fx.blackmailImmuneAttempted) result.push(immuneNotice('Blackmail',fx.blackmailImmuneCount));
+    return result;
+  }
+
+  function startNight() {
+    state.mode='night';
+    const firstNightUnassigned=state.night===1&&state.cardDeck.some(entry=>!entry.holderId);
+    state.nightState={
+      screen:'stage1-intro', stage:1, actorIndex:0, currentPlan:null,
+      activeCatalysts:state.pendingCatalysts.filter(id=>byId(id)?.alive),
+      actions:[], visits:[],
+      otherOrder:orderedTownCards().map(entry=>entry.card),
+      necronomiconMafiosoId:null,
+      identifyQueue:[], identifyNext:null
+    };
+    state.pendingCatalysts=[];
+    rebuildMafiaActors();
+    if(firstNightUnassigned) return render();
+    if(!state.setup.necronomicon&&!nightMafioso()) {
+      const ordinary=alive().filter(p=>isMafia(p)&&p.role!=='Auditor');
+      const auditor=alive().find(p=>p.role==='Auditor');
+      if(!ordinary.length&&auditor) promoteToMafioso(auditor.id);
+    }
+    render();
+  }
+  function promoteToMafioso(id) {
+    const p=byId(id); if(!p) return;
+    p.role='Mafioso'; p.category='Mafioso'; p.revealedExact=true;
+    if(state.nightState){
+      state.nightState.supportActors=state.nightState.supportActors.filter(x=>x!==id);
+      state.nightState.consigActors=state.nightState.consigActors.filter(x=>x!==id);
+    }
+  }
+
+  function actionPrompt(role) {
+    return ({Consort:'Who will you Block?',Tavernkeeper:'Who will you Block?',Blackmailer:'Who will you Blackmail?',Admirer:'Who will you Admire?',Catalyst:'Who will become Catalyzed next night?',Sheriff:'Who will you investigate?',Lookout:'Who will you watch?',Vigilante:'Who will you shoot?',Mafioso:'Who will you shoot?',Cleric:'Who will you protect?',Aristocrat:'Who receives your extra vote?',Consigliere:'Whose exact role will you learn?',Auditor:'Who will you audit?'})[role]||'Choose an action';
+  }
+  function renderNight() {
+    const ns=state.nightState;
+    if(ns.screen==='identify') return renderIdentifyCard();
+    if(ns.screen==='auditor-identify-intro') return main(`<div class="privacy"><div><p class="eyebrow">First-night identity check</p><h2>Mafia, return to sleep.</h2><p class="lead">Once all Mafia are asleep, wake the Queen alone and privately confirm their name. The Auditor will use their ability during Stage 4.</p><div class="actions"><button class="btn primary wide" onclick="Game.advanceNight()">Mafia asleep — check Auditor</button></div></div></div>`,'Night '+state.night);
+    if(ns.screen==='stage1-intro') return renderStage1Intro();
+    if(ns.screen==='stage1-action') return renderActorFromList(ns.supportActors,'Stage 1');
+    if(ns.screen==='stage2-intro') return renderPhaseIntro(2);
+    if(ns.screen==='stage2-action') return renderSinglePhaseActor(2);
+    if(ns.screen==='stage3-intro') return renderPhaseIntro(3);
+    if(ns.screen==='stage3-pass') return renderPrivatePass();
+    if(ns.screen==='stage3-action') return renderActorPlan();
+    if(ns.screen==='stage4-intro') return renderPhaseIntro(4);
+    if(ns.screen==='stage4-action') return renderSinglePhaseActor(4);
+    if(ns.screen==='stage5-intro') return renderStage5Intro();
+    if(ns.screen==='stage5-consig') return renderActorFromList(ns.consigActors,'Stage 5');
+    if(ns.screen==='stage5-mafioso') return renderMafiosoAction();
+    if(ns.screen==='resolve-ready') return renderResolveReady();
+  }
+  function beginIdentify(cards,nextScreen) {
+    const ns=state.nightState;
+    ns.identifyQueue=cards.filter(card=>!playerByCard(card));
+    ns.identifyNext=nextScreen;
+    if(!ns.identifyQueue.length) return finishIdentify();
+    ns.screen='identify'; render();
+  }
+  function finishIdentify() {
+    const ns=state.nightState, next=ns.identifyNext;
+    ns.identifyQueue=[]; ns.identifyNext=null; ns.screen=next;
+    rebuildMafiaActors();
+    if(next==='stage3-action') {
+      const ref=ns.otherOrder[ns.actorIndex], p=turnPlayer(ref);
+      ns.currentPlan=preparePlan(p.id,'Stage 3');
+    }
+    render();
+  }
+  function renderIdentifyCard() {
+    const ns=state.nightState, card=ns.identifyQueue[0], entry=deckEntry(card);
+    if(!card||!entry) return finishIdentify();
+    return main(`<div class="privacy"><div><div class="privacy-icon">${cardMarkup(card)}</div><p class="eyebrow">First-night card check</p><h2>Who has ${cardMarkup(card)}?</h2><p class="lead" style="margin-left:auto;margin-right:auto">The awakened card holder selects their name once. This pairing is remembered for later nights.${entry.category==='Auditor'&&ns.identifyNext==='stage2-intro'?' After confirming, the Auditor returns to sleep and wakes again to act during Stage 4.':''}</p>${targetButtons(unassignedPlayers(),'Game.chooseCardHolder')}</div></div>`,'Night '+state.night);
+  }
+  function chooseCardHolder(id) {
+    const ns=state.nightState, card=ns.identifyQueue[0];
+    if(!assignCardHolder(card,id)) return;
+    ns.identifyQueue.shift();
+    if(ns.identifyQueue.length) render(); else finishIdentify();
+  }
+  function renderStage1Intro() {
+    state.players.filter(p=>p.alive&&p.category==='Mafia Support').forEach(p=>p.revealedExact=true);
+    const necronomicon=state.setup.necronomicon, mafioso=nightMafioso(), cards=mafiaWakeCards();
+    const firstCheck=cards.some(entry=>!entry.holderId);
+    const candidates=alive().filter(isMafiaSupport);
+    const needsChoice=!firstCheck&&!mafioso&&candidates.length>0;
+    const waking=firstCheck?cards:alive().filter(p=>isMafia(p)&&p.role!=='Auditor');
+    const roster=waking.map(p=>`<div class="roster-row"><strong>${cardMarkup(p.card)}${p.name?` · ${esc(p.name)}`:''}</strong>${roleBadge(nightRole(p))}</div>`).join('');
+    main(`${phaseHeader(1,'',`Wake ${wakeList(waking)}`,'All non-Auditor Mafia wake together. The moderator may now hand them the tablet.')}
+      ${needsChoice?`<div class="panel danger"><p class="eyebrow">${necronomicon?'Necronomicon':'Mafioso succession'}</p><h3>${necronomicon?'Choose tonight’s Mafioso':'Unanimously choose the new Mafioso'}</h3><p style="color:var(--muted)">${necronomicon?'Choose one living Mafia player. They shoot instead of using their support ability tonight. You can choose them again tomorrow night.':'Stage 1 cannot continue until every surviving non-Auditor Mafia member agrees.'}</p>${targetButtons(candidates,'Game.chooseSuccessor')}</div>`:''}
+      <div class="panel"><p class="eyebrow">Known Mafia</p><div class="roster">${roster||'<div class="callout">No non-Auditor Mafia remain.</div>'}</div><div class="actions"><button class="btn primary wide" ${needsChoice?'disabled':''} onclick="Game.advanceNight()">${firstCheck?'Check card holders':'Begin Mafia Support actions'}</button></div></div>`,'Night '+state.night);
+  }
+  function currentTownSupportCard() {
+    const cards=state.cardDeck.filter(entry=>entry.category==='Town Support');
+    return cards[state.nightState.townSupportIndex ?? 0];
+  }
+  function currentTownSupportPlayer() {
+    const p=byId(currentTownSupportCard()?.holderId);
+    return p?.alive&&ROLES[p.role]?.category==='Town Support' ? p : null;
+  }
+  function renderPhaseIntro(phase) {
+    const ns=state.nightState;
+    if(phase===2){
+      const card=currentTownSupportCard()?.card;
+      return main(`${phaseHeader(2,'',card?`Wake ${card}`:'Town Support is absent',card?`Call ${card}. Only that card holder should see the next screen.`:'There are no Town Support cards in play.')}
+        <div class="panel soft"><div class="actions"><button class="btn primary wide" onclick="Game.advanceNight()">Continue</button></div></div>`,'Night '+state.night);
+    }
+    if(phase===3) {
+      const roster=orderedTownCards().map(entry=>{
+        const p=playerByCard(entry.card);
+        return `<div class="roster-row"><strong>${cardMarkup(entry.card)}${p?' · '+esc(p.name)+(p.alive?'':' (dead)'):''}</strong>${roleBadge(entry.role)}</div>`;
+      }).join('');
+      return main(`${phaseHeader(3,'','Other Town wake one at a time','GM only — keep this role roster hidden from players. Call cards in the same order every night: 5s, then 6s, then 7s; within each rank, spades, hearts, diamonds, clubs.')}
+        <div class="panel"><p class="eyebrow">Generated Random Town roles · GM only</p><div class="roster">${roster||'<p>No Random Town cards.</p>'}</div><p>Roles were shuffled before assignment. The wake order does not distinguish guaranteed roles from additional random roles.</p><div class="actions"><button class="btn primary wide" onclick="Game.advanceNight()">Hide roster & begin calls</button></div></div>`,'Night '+state.night);
+    }
+    const auditor=alive().find(p=>p.role==='Auditor'), entry=state.cardDeck.find(x=>x.category==='Auditor'), card=auditor?.card||entry?.card;
+    return main(`${phaseHeader(4,'',card?`Wake ${card}`:'The Auditor is absent',card?`Call ${card} alone.`:'No living Auditor remains.')}
+      <div class="panel soft"><div class="actions"><button class="btn primary wide" onclick="Game.advanceNight()">${card?`${auditor?'Begin audit':'Check card holder'}`:'Continue'}</button></div></div>`,'Night '+state.night);
+  }
+  function renderPrivatePass() {
+    const ns=state.nightState, ref=ns.otherOrder[ns.actorIndex], p=turnPlayer(ref), card=p?.card||ref;
+    if(!card) return main(`<div class="privacy"><div><h2>No living Town players remain</h2><button class="btn primary" onclick="Game.advanceNight()">Continue</button></div></div>`,'Night '+state.night);
+    return main(`${progress(ns.actorIndex,ns.otherOrder.length)}<div class="privacy"><div><div class="privacy-icon">◐</div><p class="eyebrow">Town card ${ns.actorIndex+1} of ${ns.otherOrder.length}</p><h2>Wake ${cardMarkup(card)}</h2><p class="lead" style="margin-left:auto;margin-right:auto">Only the player holding ${cardMarkup(card)} should see the next screen.</p><div class="actions"><button class="btn primary wide" onclick="Game.beginPrivateActor()">I have ${esc(card)} — continue</button></div></div></div>`,'Night '+state.night);
+  }
+  function renderStage5Intro() {
+    const waking=alive().filter(p=>isMafia(p)&&p.role!=='Auditor');
+    const roster=waking.map(p=>{
+      const n=playerNotices(p); return `<div class="roster-row"><div><strong>${cardMarkup(p.card)} · ${esc(p.name)}</strong>${n.length?`<div style="color:var(--muted);font-size:.86rem;margin-top:3px">${n.map(x=>x.replace(/<[^>]+>/g,'')).join(' · ')}</div>`:''}</div>${roleBadge(nightRole(p))}</div>`;
+    }).join('');
+    return main(`${phaseHeader(5,'',`Wake ${wakeList(waking)}`,'All non-Auditor Mafia wake together for the Consigliere and Mafioso actions.')}
+      <div class="panel"><div class="roster">${roster}</div><div class="actions"><button class="btn primary wide" onclick="Game.advanceNight()">Begin final Mafia actions</button></div></div>`,'Night '+state.night);
+  }
+  function renderActorFromList(list,label) {
+    const ns=state.nightState;
+    if(ns.actorIndex>=list.length){ queueMicrotask(()=>advanceAfterActor()); return; }
+    if(!ns.currentPlan) ns.currentPlan=preparePlan(list[ns.actorIndex],label);
+    renderActorPlan();
+  }
+  function renderSinglePhaseActor(phase) {
+    const ns=state.nightState;
+    let p=null;
+    if(phase===2) p=currentTownSupportPlayer();
+    if(phase===4) p=alive().find(x=>x.role==='Auditor');
+    if(!p){ queueMicrotask(()=>advanceAfterActor()); return; }
+    if(!ns.currentPlan) ns.currentPlan=preparePlan(p.id,`Stage ${phase}`);
+    renderActorPlan();
+  }
+  function renderMafiosoAction() {
+    const ns=state.nightState, p=nightMafioso();
+    if(!p){ queueMicrotask(()=>{ns.screen='resolve-ready';render();}); return; }
+    if(!ns.currentPlan) ns.currentPlan=preparePlan(p.id,'Stage 5');
+    renderActorPlan();
+  }
+  function renderActorPlan() {
+    const ns=state.nightState, plan=ns.currentPlan, p=byId(plan.actorId), role=nightRole(p), mafia=ROLES[role].alignment==='Mafia';
+    const info=[...plan.messages];
+    const countCopy=plan.remaining>1?`${plan.remaining} actions remain.`:plan.remaining===1?'One action remains.':'Your turn is complete.';
+    let controls='';
+    if(plan.done||plan.remaining<=0){
+      controls=`<div class="actions"><button class="btn primary wide" onclick="Game.completeActor()">Hide screen & continue</button></div>`;
+    } else if(role==='Veteran') {
+      controls=`<div class="choice-grid">${button('Activate tonight','Game.activateVeteran()','btn primary','Shoot Mafia visitors and become immune')}${button('Do not activate','Game.skipActions()','btn ghost')}</div>`;
+    } else if(role==='Witch') {
+      if(!plan.draftControlled){
+        const targets=legalTargets('Witch',p.id,plan.userTargets);
+        controls=`<p class="lead">Choose the player to control.</p>${targetButtons(targets,'Game.chooseWitchControlled')}<div class="actions"><button class="btn ghost wide" onclick="Game.skipActions()">Finish without remaining actions</button></div>`;
+      } else {
+        const controlled=byId(plan.draftControlled);
+        controls=`<div class="callout"><strong>Controlled player:</strong> ${esc(controlled.name)}</div><p class="lead">Choose their forced target.</p>${targetButtons(alive(),'Game.chooseWitchForced')}<div class="actions"><button class="btn ghost" onclick="Game.cancelWitchDraft()">Change controlled player</button><button class="btn ghost" onclick="Game.skipActions()">Finish turn</button></div>`;
+      }
+    } else {
+      const targets=legalTargets(role,p.id,plan.userTargets);
+      controls=`<p class="lead">${esc(actionPrompt(role))}</p>${targetButtons(targets,'Game.chooseRoleTarget',[],t=>t.id===p.id?'Self':'')}<div class="actions"><button class="btn ghost wide" onclick="Game.skipActions()">${role==='Aristocrat'?'Keep current assignment / finish':'Do not use remaining actions'}</button></div>`;
+    }
+    main(`<div class="action-layout"><article class="role-card ${mafia?'mafia':''}"><div><p class="eyebrow">${esc(p.name)} · ${cardMarkup(p.card)} · ${esc(plan.context)}</p><div class="role-name" style="font-size:clamp(2.3rem,6vw,4.6rem)">${esc(role)}</div><div class="role-meta">${esc(ROLES[role].alignment)}</div><p class="role-copy">${esc(ROLES[role].copy)}</p></div></article>
+      <div class="panel"><div style="display:flex;justify-content:space-between;gap:15px;align-items:center"><h3>${esc(countCopy)}</h3>${roleBadge(role)}</div>${notices(info)}${controls}</div></div>`,'Night '+state.night);
+  }
+  function renderResolveReady() {
+    main(`<div class="privacy"><div><div class="privacy-icon">✦</div><p class="eyebrow">All choices are locked</p><h2>Everyone is asleep</h2><p class="lead" style="margin-left:auto;margin-right:auto">The moderator may now resolve visits, protection, shots, guilt, and deaths.</p><div class="actions"><button class="btn primary wide" onclick="Game.resolveNight()">Resolve Night ${state.night}</button></div></div></div>`,'Night '+state.night);
+  }
+
+  function advanceNight() {
+    const ns=state.nightState;
+    if(ns.screen==='auditor-identify-intro') {
+      const entry=state.cardDeck.find(x=>x.category==='Auditor');
+      return beginIdentify([entry.card],'stage2-intro');
+    } else if(ns.screen==='stage1-intro'){
+      const mafiaCards=mafiaWakeCards().map(entry=>entry.card);
+      if(mafiaCards.some(card=>!playerByCard(card))) {
+        return beginIdentify(mafiaCards,state.setup.necronomicon?'stage1-intro':'stage1-action');
+      }
+      if(!nightMafioso()) return;
+      ns.screen='stage1-action'; ns.actorIndex=0; ns.currentPlan=null;
+      if(!ns.supportActors.length) finishMafiaSupport();
+    } else if(ns.screen==='stage2-intro'){
+      const entry=currentTownSupportCard();
+      if(!entry) ns.screen='stage3-intro';
+      else if(!entry.holderId) return beginIdentify([entry.card],'stage2-action');
+      else {
+        ns.screen='stage2-action'; ns.currentPlan=null;
+        if(!currentTownSupportPlayer()) return advanceAfterActor();
+      }
+    } else if(ns.screen==='stage3-intro'){
+      ns.actorIndex=0; ns.currentPlan=null; ns.screen=ns.otherOrder.length?'stage3-pass':'stage4-intro';
+    } else if(ns.screen==='stage4-intro'){
+      const entry=state.cardDeck.find(x=>x.category==='Auditor');
+      if(entry&&!entry.holderId) return beginIdentify([entry.card],'stage4-action');
+      ns.currentPlan=null; ns.screen=alive().some(p=>p.role==='Auditor')?'stage4-action':'stage5-intro';
+    } else if(ns.screen==='stage5-intro'){
+      ns.actorIndex=0; ns.currentPlan=null; ns.screen=ns.consigActors.length?'stage5-consig':'stage5-mafioso';
+    }
+    render();
+  }
+  function beginPrivateActor() {
+    const ns=state.nightState, ref=ns.otherOrder[ns.actorIndex], p=turnPlayer(ref);
+    if(!p) return beginIdentify([ref],'stage3-action');
+    // Keep every card's wake call, but never prepare or execute a dead player's action.
+    if(!p.alive) { ns.screen='stage3-action'; return advanceAfterActor(); }
+    ns.currentPlan=preparePlan(p.id,'Stage 3'); ns.screen='stage3-action'; render();
+  }
+  function advanceAfterActor() {
+    const ns=state.nightState;
+    if(ns.currentPlan) {
+      if(!Array.isArray(ns.completedActors)) ns.completedActors=[];
+      if(!ns.completedActors.includes(ns.currentPlan.actorId)) ns.completedActors.push(ns.currentPlan.actorId);
+    }
+    ns.currentPlan=null;
+    if(ns.screen==='stage1-action') { ns.actorIndex++; if(ns.actorIndex>=ns.supportActors.length){finishMafiaSupport();ns.actorIndex=0;} }
+    else if(ns.screen==='stage2-action') {
+      ns.townSupportIndex=(ns.townSupportIndex ?? 0)+1;
+      ns.screen=currentTownSupportCard()?'stage2-intro':'stage3-intro';
+    }
+    else if(ns.screen==='stage3-action') { ns.actorIndex++; ns.screen=ns.actorIndex<ns.otherOrder.length?'stage3-pass':'stage4-intro'; }
+    else if(ns.screen==='stage4-action') ns.screen='stage5-intro';
+    else if(ns.screen==='stage5-consig') { ns.actorIndex++; if(ns.actorIndex>=ns.consigActors.length){ns.actorIndex=0;ns.screen='stage5-mafioso';} }
+    else if(ns.screen==='stage5-mafioso') ns.screen='resolve-ready';
+    render();
+  }
+  function chooseSuccessor(id) {
+    const ns=state.nightState, player=byId(id);
+    if(state.mode!=='night'||ns?.screen!=='stage1-intro'||!player?.alive||!isMafiaSupport(player)||nightMafioso()) return;
+    if(mafiaWakeCards().some(entry=>!entry.holderId)) return;
+    if(state.setup.necronomicon) ns.necronomiconMafiosoId=id;
+    else promoteToMafioso(id);
+    rebuildMafiaActors();
+    render();
+  }
+  function finishMafiaSupport() {
+    const auditor=state.cardDeck.find(entry=>entry.category==='Auditor'&&!entry.holderId);
+    state.nightState.screen=state.night===1&&auditor?'auditor-identify-intro':'stage2-intro';
+  }
+  function chooseRoleTarget(id) {
+    const plan=state.nightState.currentPlan;
+    if(!applyTargetAction(plan,id,false)) return;
+    plan.userTargets.push(id); plan.remaining--; if(plan.remaining<=0) plan.done=true; render();
+  }
+  function chooseWitchControlled(id) { state.nightState.currentPlan.draftControlled=id; render(); }
+  function chooseWitchForced(id) {
+    const plan=state.nightState.currentPlan, actor=byId(plan.actorId);
+    recordAction({type:'witch',actorId:actor.id,controlledId:plan.draftControlled,forcedId:id,sourceRole:'Witch'});
+    plan.userTargets.push(plan.draftControlled); plan.draftControlled=null; plan.remaining--; if(plan.remaining<=0) plan.done=true; render();
+  }
+  function cancelWitchDraft() { state.nightState.currentPlan.draftControlled=null; render(); }
+  function activateVeteran() {
+    finishVeteranChoice(true);
+  }
+  function finishVeteranChoice(activate) {
+    const ns=state.nightState, plan=ns.currentPlan, p=byId(plan?.actorId);
+    if(!p?.alive||p.role!=='Veteran'||plan.done||plan.remaining<=0) return;
+    const blocked=effectFor(p.id).blocked;
+    const activated=activate&&!blocked&&p.veteranActivations<2&&!p.veteranLostSecond;
+    if(!ns.veteranChoices) ns.veteranChoices={};
+    ns.veteranChoices[p.id]={choice:activate?'activate':'do not activate',activated,canceledByBlock:activate&&blocked};
+    if(activated) { recordAction({type:'veteran',actorId:p.id,sourceRole:'Veteran'}); p.veteranActivations++; }
+    plan.messages.push(...(plan.deferredMessages||[])); plan.deferredMessages=[];
+    plan.messages.push(activated?'You activated tonight.':activate&&blocked?'Your activation was canceled. No activation was used.':'You did not activate tonight.');
+    plan.remaining=0; plan.done=true; render();
+  }
+  function skipActions() { const plan=state.nightState.currentPlan; if(byId(plan.actorId)?.role==='Veteran') return finishVeteranChoice(false); plan.remaining=0; plan.done=true; plan.draftControlled=null; render(); }
+
+  function buildNightDebug(resolution=null) {
+    const ns=state.nightState;
+    if(!ns) return '';
+    const name=id=>byId(id)?.name||id||'unknown';
+    const describe=a=>`${a.type}${a.shotRole?' ('+a.shotRole+')':''}: ${name(a.actorId)}${a.type==='witch'?' controls '+name(a.controlledId)+' -> '+name(a.forcedId):a.targetId?' -> '+name(a.targetId):''}${a.forced?' [forced]':''}`;
+    const shots=resolution?.shots||nightActions('shot');
+    const protections=resolution?.protectedIds||new Set(nightActions('protect').map(a=>a.targetId));
+    const veterans=resolution?.activeVeterans||new Set(nightActions('veteran').map(a=>a.actorId));
+    const lines=[`Night ${state.night} - ${resolution?'resolved':'in progress (effects provisional; retaliation and deaths not resolved)'}`];
+    if(ns.necronomiconMafiosoId) lines.push(`Necronomicon Mafioso: ${name(ns.necronomiconMafiosoId)}`);
+    state.players.forEach(p=>{
+      const fx=effectFor(p.id), actions=ns.actions.filter(a=>a.actorId===p.id);
+      const incoming=ns.actions.filter(a=>(a.type==='witch'?a.controlledId:a.targetId)===p.id);
+      const receivedShots=shots.filter(a=>a.targetId===p.id);
+      const due=state.guiltDue[p.id]||0;
+      const effects={
+        shot:receivedShots.length, healed:protections.has(p.id), veteranActive:veterans.has(p.id),
+        admired:fx.admired, catalyzed:activeCatalyzed(p.id), catalyzedNextNight:nightActions('catalyst','targetId',p.id).length>0,
+        blocked:fx.blocked, blackmailed:fx.blackmailed, witched:!!fx.witch,
+        blockCount:fx.blockCount, blackmailCount:fx.blackmailCount, witchCount:fx.witchCount,
+        blockAttemptCount:fx.blockAttemptCount, blackmailAttemptCount:fx.blackmailAttemptCount, witchAttemptCount:fx.witchAttemptCount,
+        blockImmuneCount:fx.blockImmuneCount, blackmailImmuneCount:fx.blackmailImmuneCount, witchImmuneCount:fx.witchImmuneCount,
+        catalystCount:catalystCount(p.id), admirationCount:nightActions('admire','targetId',p.id).length, protectionCount:nightActions('protect','targetId',p.id).length,
+        blockAttempted:fx.blockAttempted, blackmailAttempted:fx.blackmailAttempted, witchAttempted:fx.witchAttempted,
+        blockImmuneAttempted:fx.blockImmuneAttempted, blackmailImmuneAttempted:fx.blackmailImmuneAttempted, witchImmuneAttempted:fx.witchImmuneAttempted,
+        priorBlockOrWitch:hasPriorBW(p.id), priorBlackmail:hasPriorBlackmail(p.id),
+        auditVoteRemoval:fx.admired?0:nightActions('audit','targetId',p.id).length,
+        guiltyDueTonight:due, guiltPrevented:due>0&&fx.admired,
+        newGuilt:resolution?(resolution.newGuilt[p.id]||0):'pending resolution',
+        guiltDeath:resolution?!!(p.alive&&due>0&&!fx.admired&&!veterans.has(p.id)):'pending resolution',
+        diedTonight:resolution?resolution.deaths.has(p.id):'pending resolution',
+        selfProtectUsed:!!p.selfProtectUsed, veteranActivations:p.veteranActivations||0,
+        veteranLostSecond:!!p.veteranLostSecond,
+        veteranChoice:ns.veteranChoices?.[p.id]||null,
+        aristocratRecipient:p.aristocratRecipient?name(p.aristocratRecipient):null
+      };
+      const completed=ns.completedActors?.includes(p.id)||(ns.currentPlan?.actorId===p.id&&ns.currentPlan.done);
+      lines.push('',`${p.name} | role: ${p.role||'not paired yet'} | card: ${p.card||'not paired yet'} | ${p.alive?(resolution?.deaths.has(p.id)?'died this night':'alive'):'already dead'}`,
+        `Actions: ${actions.length?actions.map(describe).join('; '):!p.alive?'none (already dead)':resolution||completed?'none recorded (skipped or unavailable)':'none recorded yet'}`,
+        `Visited by: ${ns.visits.filter(v=>v.targetId===p.id).map(v=>name(v.actorId)).join(', ')||'none'}`,
+        `Incoming actions/attempts: ${incoming.map(describe).join('; ')||'none'}`,
+        `Shots received: ${receivedShots.map(a=>describe(a)+(protections.has(p.id)?' [prevented by Cleric]':veterans.has(p.id)?' [prevented by Veteran immunity]':resolution?' [lethal]':' [pending]')).join('; ')||'none'}`,
+        `Veteran retaliation: ${resolution?shots.filter(a=>a.actorId===p.id&&a.shotRole==='Veteran').map(describe).join('; ')||'none':'pending resolution'}`,
+        `Effects: ${JSON.stringify(effects)}`);
+    });
+    return lines.join('\n');
+  }
+  function debugLogText() {
+    const logs=(state.debugNights||[]).map(entry=>entry.text);
+    if(state.nightState) logs.push(buildNightDebug());
+    return 'GM DEBUG LOG - contains all hidden roles and actions.\nHealed means Cleric protection was applied, even if no shot occurred. Attempts and effective effects are listed separately.\nOnly nights recorded since this debug feature was added are available.\n\n'+(logs.join('\n\n--------------------\n\n')||'No night records yet.');
+  }
+  function openDebug() {
+    const d=document.getElementById('menuDialog');
+    d.innerHTML=`<div class="dialog-body"><label for="debugLog">Night debug log (GM only)</label><textarea id="debugLog" readonly spellcheck="false" style="width:100%;height:65vh;white-space:pre;font-family:monospace">${esc(debugLogText())}</textarea><div class="actions"><button class="btn" onclick="Game.openMenu()">Back to menu</button><button class="btn" onclick="Game.closeMenu()">Close</button></div></div>`;
+    if(!d.open) d.showModal();
+  }
+
+  function resolveNight() {
+    const ns=state.nightState, activeVeterans=new Set(nightActions('veteran').map(a=>a.actorId));
+    nightActions('aristocrat').sort((a,b)=>a.order-b.order).forEach(a=>{ const p=byId(a.actorId); if(p) p.aristocratRecipient=a.targetId; });
+    state.pendingCatalysts=nightActions('catalyst').map(a=>a.targetId);
+    state.dayAuditTargets=nightActions('audit').filter(a=>!isAdmired(a.targetId)).map(a=>a.targetId);
+    state.dayBlackmailed=alive().filter(p=>effectFor(p.id).blackmailed).map(p=>p.id);
+
+    const veteranShots=[];
+    activeVeterans.forEach(vetId=>{
+      const visitors=[...new Set(ns.visits.filter(v=>v.targetId===vetId).map(v=>v.actorId))];
+      visitors.map(byId).filter(p=>p&&isMafia(p)).forEach(p=>veteranShots.push({type:'shot',actorId:vetId,targetId:p.id,shotRole:'Veteran',sourceRole:'Veteran'}));
+    });
+    const shots=[...nightActions('shot'),...veteranShots];
+    const protectedIds=new Set(nightActions('protect').map(a=>a.targetId));
+    const deaths=new Set();
+    shots.forEach(s=>{ if(!protectedIds.has(s.targetId)&&!activeVeterans.has(s.targetId)) deaths.add(s.targetId); });
+    Object.entries(state.guiltDue).forEach(([id,count])=>{
+      const p=byId(id); if(count>0&&p?.alive&&!isAdmired(id)&&!activeVeterans.has(id)) deaths.add(id);
+    });
+
+    const newGuilt={};
+    shots.filter(s=>s.shotRole==='Vigilante').forEach(s=>{
+      const target=byId(s.targetId);
+      if(target&&ROLES[target.role].alignment==='Town'&&deaths.has(target.id)&&!protectedIds.has(target.id)&&!activeVeterans.has(target.id)) newGuilt[s.actorId]=(newGuilt[s.actorId]||0)+1;
+    });
+    activeVeterans.forEach(vetId=>{
+      const vet=byId(vetId); if(!vet||vet.veteranActivations!==1) return;
+      const earned=veteranShots.some(s=>s.actorId===vetId&&deaths.has(s.targetId)&&!protectedIds.has(s.targetId));
+      if(earned) vet.veteranLostSecond=true;
+    });
+
+    // Capture before lastEffects, guiltDue, and alive flags change for the next night.
+    const debugText=buildNightDebug({shots,protectedIds,activeVeterans,deaths,newGuilt});
+    if(!Array.isArray(state.debugNights)) state.debugNights=[];
+    state.debugNights=state.debugNights.filter(entry=>entry.night!==state.night);
+    state.debugNights.push({night:state.night,text:debugText});
+    state.players.forEach(p=>{
+      const fx=effectFor(p.id);
+      state.lastEffects[p.id]={blockOrWitch:fx.blocked||!!fx.witch,blackmail:fx.blackmailed};
+    });
+    deaths.forEach(id=>{ const p=byId(id); if(p) p.alive=false; });
+    state.guiltDue={};
+    Object.entries(newGuilt).forEach(([id,count])=>{ if(byId(id)?.alive) state.guiltDue[id]=count; });
+
+    nightActions('lookout').forEach(a=>{
+      const lookout=byId(a.actorId); if(!lookout?.alive) return;
+      const visitorNames=[...new Set(ns.visits.filter(v=>v.targetId===a.targetId).map(v=>byId(v.actorId)?.name).filter(Boolean))];
+      if(!Array.isArray(lookout.lookoutInbox)) lookout.lookoutInbox=[];
+      const watched=byId(a.targetId)?.name||'your target';
+      lookout.lookoutInbox.push(`<strong>${esc(watched)}</strong> was visited by ${visitorNames.length?visitorNames.map(esc).join(', '):'no one'}.`);
+    });
+    const deadPlayers=[...deaths].map(byId).filter(Boolean);
+    state.nightResult={night:state.night,deaths:deadPlayers.map(p=>p.id)};
+    state.nightState=null;
+    const winner=checkWinner();
+    if(winner) state.winner=winner;
+    state.mode='nightResult';
+    render();
+  }
+  function checkWinner() {
+    const mafia=alive().filter(isMafia).length, town=alive().filter(p=>!isMafia(p)).length;
+    if(mafia===0&&town===0) return 'Tie';
+    if(mafia===0) return 'Town';
+    if(town===0) return 'Mafia';
+    return null;
+  }
+  function renderNightResult() {
+    const ids=state.nightResult?.deaths||[], dead=ids.map(byId).filter(Boolean);
+    main(`<p class="eyebrow">Dawn after Night ${state.nightResult.night}</p><h1>${dead.length?'The town wakes to loss.':'The town wakes intact.'}</h1>
+      <p class="lead">Announce only the names below. Do not reveal roles or causes of death.</p>
+      ${dead.length?`<div class="death-list">${dead.map(p=>`<div class="death">${esc(p.name)} died</div>`).join('')}</div>`:`<div class="panel soft"><h3>No one died.</h3></div>`}
+      <div class="actions"><button class="btn primary wide" onclick="${state.winner?'Game.showGameOver()':'Game.beginDay()'}">${state.winner?'Reveal game result':`Begin Day ${state.night}`}</button></div>`,'Dawn');
+  }
+  function beginDay() { state.mode='day'; render(); }
+  function renderDay() {
+    main(`<p class="eyebrow">Day ${state.night}</p><h1>Open the floor.</h1><p class="lead">The living players may deliberate. When voting begins, show the GM each player’s available voting power and let the GM confirm the result.</p>
+      <div class="panel"><div class="roster">${state.players.map(p=>`<div class="roster-row ${p.alive?'':'dead'}"><strong>${esc(p.name)}</strong><span class="tag ${p.alive?'green':''}">${p.alive?'Alive':'Dead'}</span></div>`).join('')}</div>
+      <div class="actions"><button class="btn primary wide" onclick="Game.beginVoting()">Show GM voting view</button></div></div>`,'Day '+state.night);
+  }
+  function beginVoting() {
+    state.mode='voting'; state.votes={selectedId:null}; render();
+  }
+  function assignedExtrasFor(id) { return byId(id)?.alive ? state.players.filter(p=>p.role==='Aristocrat'&&p.aristocratRecipient===id).length : 0; }
+  function auditCount(id) { return state.dayAuditTargets.filter(x=>x===id).length; }
+  function availableVoteCount(p) {
+    let total=1+assignedExtrasFor(p.id), audits=auditCount(p.id);
+    if(p.role==='Aristocrat') audits=Math.min(1,audits);
+    return Math.max(0,total-audits);
+  }
+  function renderVoting() {
+    const v=state.votes, living=alive(), selected=byId(v.selectedId);
+    const diagram=playerDiagram(living,'Game.selectElimination',selected?[selected.id]:[],p=>{const count=availableVoteCount(p);return `${count} ${count===1?'vote':'votes'}`;});
+    return main(`<p class="eyebrow">Game Master only · Day ${state.night}</p><h2>Available votes</h2>${diagram}<div class="actions"><button class="btn ghost" onclick="Game.confirmNoElimination()">Confirm no elimination</button><button class="btn primary" ${selected?'':'disabled'} onclick="Game.confirmElimination()">${selected?`Confirm ${esc(selected.name)} eliminated`:'Choose someone to eliminate'}</button></div>`,'GM voting view');
+  }
+  function selectElimination(id) { state.votes.selectedId=state.votes.selectedId===id?null:id; render(); }
+  function finishVoteTally(eliminatedId) {
+    const eliminated=byId(eliminatedId);
+    if(eliminated) eliminated.alive=false;
+    state.mode='voteResult'; state.voteResult={eliminatedId:eliminated?.id||null}; state.votes=null;
+    const winner=checkWinner(); if(winner) state.winner=winner;
+    render();
+  }
+  function confirmElimination() { if(state.votes?.selectedId) finishVoteTally(state.votes.selectedId); }
+  function confirmNoElimination() { finishVoteTally(null); }
+  function renderVoteResult() {
+    const r=state.voteResult, eliminated=byId(r.eliminatedId);
+    main(`<p class="eyebrow">Day ${state.night} result</p><h1>${eliminated?`${esc(eliminated.name)} is eliminated.`:'No one is eliminated.'}</h1>
+      <div class="actions"><button class="btn primary wide" onclick="${state.winner?'Game.showGameOver()':'Game.nextNight()'}">${state.winner?'Reveal game result':`Begin Night ${state.night+1}`}</button></div>`,'Vote result');
+  }
+  function nextNight() { state.dayAuditTargets=[]; state.dayBlackmailed=[]; state.voteResult=null; state.night++; startNight(); }
+  function renderGameOver() {
+    const title=state.winner==='Tie'?'The game ends in a tie.':`${state.winner} wins.`;
+    main(`<div class="hero"><p class="eyebrow">Game over</p><h1>${esc(title)}</h1><p class="lead">The final result is official. Roles may now be revealed around the table.</p></div>
+      <div class="panel"><div class="roster">${state.players.map(p=>`<div class="roster-row"><div><strong>${esc(p.name)}</strong><div style="color:var(--muted)">${p.alive?'Survived':'Died'}</div></div>${roleBadge(p.role)}</div>`).join('')}</div><div class="actions"><button class="btn primary wide" onclick="Game.resetGame()">Set up another game</button></div></div>`,'Game over');
+  }
+
+  function adjustPlayers(delta) {
+    const s=state.setup, next=Math.max(7,Math.min(19,s.count+delta));
+    s.count=next;
+    while(s.names.length<next) s.names.push(`Player ${s.names.length+1}`);
+    const defaults=defaultSeats(next);
+    while(s.seats.length<next) s.seats.push(defaults[s.seats.length]);
+    s.seats=s.seats.slice(0,next);
+    if(s.cards.length>next) s.cards=s.cards.slice(0,next);
+    render();
+  }
+  function setName(index,value) {
+    state.setup.names[index]=value;
+    const label=document.querySelector(`[data-seat-index="${index}"] .seat-name`);
+    if(label) label.textContent=value||`Player ${index+1}`;
+    refreshSetupValidity();
+    saveState();
+  }
+  function adjustTableDimension(axis,delta) {
+    const s=state.setup;
+    if(axis==='width') s.tableWidth=Math.max(38,Math.min(68,s.tableWidth+delta));
+    if(axis==='height') s.tableHeight=Math.max(24,Math.min(58,s.tableHeight+delta));
+    render();
+  }
+  function resetSeatPositions() { state.setup.seats=defaultSeats(state.setup.count); render(); }
+  function startSeatDrag(event,index) {
+    if(state.mode!=='setup') return;
+    draggingSeatIndex=index; event.currentTarget.classList.add('dragging');
+    try{event.currentTarget.setPointerCapture(event.pointerId);}catch{}
+    moveSeatDrag(event,index); event.preventDefault();
+  }
+  function moveSeatDrag(event,index) {
+    if(draggingSeatIndex!==index||state.mode!=='setup') return;
+    const map=event.currentTarget.closest('[data-table-map]'); if(!map) return;
+    const rect=map.getBoundingClientRect(), x=(event.clientX-rect.left)/rect.width*100, y=(event.clientY-rect.top)/rect.height*100;
+    const s=state.setup, halfW=s.tableWidth/2, halfH=s.tableHeight/2, gap=10;
+    const candidates=[
+      {side:'top',dist:Math.abs(y-(50-halfH-gap)),pos:(x-(50-halfW))/s.tableWidth},
+      {side:'right',dist:Math.abs(x-(50+halfW+gap)),pos:(y-(50-halfH))/s.tableHeight},
+      {side:'bottom',dist:Math.abs(y-(50+halfH+gap)),pos:((50+halfW)-x)/s.tableWidth},
+      {side:'left',dist:Math.abs(x-(50-halfW-gap)),pos:((50+halfH)-y)/s.tableHeight}
+    ];
+    const nearest=candidates.sort((a,b)=>a.dist-b.dist)[0];
+    s.seats[index]={side:nearest.side,pos:Math.max(.04,Math.min(.96,nearest.pos))};
+    const point=seatCoordinates(s.seats[index],s.tableWidth,s.tableHeight);
+    event.currentTarget.style.left=point.x+'%'; event.currentTarget.style.top=point.y+'%';
+    event.preventDefault();
+  }
+  function endSeatDrag(event,index) {
+    if(draggingSeatIndex!==index) return;
+    moveSeatDrag(event,index); draggingSeatIndex=null; event.currentTarget.classList.remove('dragging'); saveState();
+    try{event.currentTarget.releasePointerCapture(event.pointerId);}catch{}
+  }
+  function toggleSetupCard(card) {
+    const cards=state.setup.cards, index=cards.indexOf(card);
+    if(index>=0) cards.splice(index,1);
+    else if(cards.length<state.setup.count) cards.push(card);
+    render();
+  }
+  function openReveal() { state.revealOpen=true; render(); }
+  function nextReveal() {
+    state.revealOpen=false; state.revealIndex++;
+    if(state.revealIndex>=state.players.length) startNight(); else render();
+  }
+  function showGameOver() { state.mode='gameOver'; render(); }
+  function requestPlayerSelection(action,id) {
+    const allowed=['Game.chooseCardHolder','Game.chooseSuccessor','Game.chooseRoleTarget','Game.chooseWitchControlled','Game.chooseWitchForced','Game.selectElimination'];
+    const p=byId(id);
+    if(!p||!allowed.includes(action)) return;
+    pendingPlayerSelection={action,id};
+    render();
+  }
+  function cancelPlayerConfirmation() {
+    pendingPlayerSelection=null;
+    render();
+  }
+  function confirmPlayerSelection() {
+    const selection=pendingPlayerSelection;
+    if(!selection) return;
+    pendingPlayerSelection=null;
+    const handlers={
+      'Game.chooseCardHolder':chooseCardHolder,
+      'Game.chooseSuccessor':chooseSuccessor,
+      'Game.chooseRoleTarget':chooseRoleTarget,
+      'Game.chooseWitchControlled':chooseWitchControlled,
+      'Game.chooseWitchForced':chooseWitchForced,
+      'Game.selectElimination':selectElimination
+    };
+    handlers[selection.action]?.(selection.id);
+  }
+  function menuMarkup(confirming=false) {
+    if(confirming) return `<div class="dialog-body"><p class="eyebrow">Confirm reset</p><h2>End this game?</h2><p class="lead">The current roles, actions, and history will be erased from this device.</p><div class="actions"><button class="btn" onclick="Game.openMenu()">Keep playing</button><button class="btn danger" onclick="Game.resetGame()">Erase & start over</button></div></div>`;
+    return `<div class="dialog-body"><p class="eyebrow">Game menu</p><h2>Pause the table</h2><p class="lead">Your game saves automatically on this device.</p><div class="actions"><button class="btn" onclick="Game.closeMenu()">Return to game</button><button class="btn" onclick="Game.openDebug()">Night debug log</button><button class="btn danger" onclick="Game.confirmReset()">Start a new game</button></div></div>`;
+  }
+  function openMenu() { const d=document.getElementById('menuDialog'); d.innerHTML=menuMarkup(false); if(!d.open)d.showModal(); }
+  function closeMenu() { document.getElementById('menuDialog').close(); }
+  function confirmReset() { document.getElementById('menuDialog').innerHTML=menuMarkup(true); }
+  function goBack() {
+    if(!undoHistory.length) return;
+    try{document.getElementById('menuDialog').close();}catch{}
+    pendingPlayerSelection=null;
+    const snapshot=undoHistory.pop();
+    state=JSON.parse(snapshot); renderedSnapshot=snapshot; restoringState=true; render();
+  }
+  function resetGame() {
+    try{document.getElementById('menuDialog').close();}catch{}
+    pendingPlayerSelection=null;
+    localStorage.removeItem(STORAGE_KEY); undoHistory=[]; state=freshState(); renderedSnapshot=JSON.stringify(state); restoringState=true; render();
+  }
+
+  window.Game={
+    adjustPlayers,setName,setNecronomicon,setRoleEnabled,setRoleGuarantee,adjustTableDimension,resetSeatPositions,startSeatDrag,moveSeatDrag,endSeatDrag,toggleSetupCard,chooseCardHolder,createGame,openReveal,nextReveal,startNight,
+    chooseSuccessor,advanceNight,beginPrivateActor,chooseRoleTarget,chooseWitchControlled,chooseWitchForced,cancelWitchDraft,
+    activateVeteran,skipActions,completeActor:advanceAfterActor,resolveNight,beginDay,beginVoting,
+    selectElimination,confirmElimination,confirmNoElimination,nextNight,showGameOver,
+    requestPlayerSelection,confirmPlayerSelection,cancelPlayerConfirmation,
+    goBack,openMenu,openDebug,closeMenu,confirmReset,resetGame
+  };
+
+  function registerWebMCP() {
+    const context=document.modelContext;
+    if(!context?.registerTool) return;
+    try {
+      context.registerTool({
+        name:'get_mafia_game_status',
+        title:'Get Mafia game status',
+        description:'Read the current public phase, night number, living-player count, and whether the game has ended. Does not reveal hidden roles or private actions.',
+        inputSchema:{type:'object',properties:{},additionalProperties:false},
+        annotations:{readOnlyHint:true,untrustedContentHint:false},
+        execute(input){
+          if(input===null||typeof input!=='object'||Array.isArray(input)||Object.keys(input).length) throw new Error('This tool does not accept input fields.');
+          return {phase:state.mode,night:state.night,livingPlayers:alive().length,totalPlayers:state.players.length,winner:state.winner};
+        }
+      });
+    } catch {}
+  }
+  registerWebMCP();
+  render();
+  </script>
+</body>
+</html>
